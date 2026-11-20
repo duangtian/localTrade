@@ -6,7 +6,6 @@ export default {
   theme: {
     extend: {
       fontFamily: { sans: ["var(--font-thai)", "system-ui", "sans-serif"] },
-      fontSize: { base: ["18px", "1.6"] },
       colors: {
         up: { DEFAULT: "#15803d", dark: "#4ade80" },
         down: { DEFAULT: "#b91c1c", dark: "#f87171" },

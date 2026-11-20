@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ตัวหนังสือเนื้อหา 18px, ตัวเลขทุกตัวใช้ tabular-nums */
+html { font-size: 18px; -webkit-text-size-adjust: 100%; }
+body {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+}
+:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; border-radius: 6px; }
+
+@layer components {
+  .card { @apply rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700; }
+  .btn { @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-blue-700 text-white hover:bg-blue-800 dark:bg-blue-500 dark:text-slate-950 dark:hover:bg-blue-400; }
+  .btn-secondary { @apply btn bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-600 dark:hover:bg-slate-700; }
+  .btn-buy { @apply btn bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-400 dark:text-slate-950; }
+  .btn-sell { @apply btn bg-rose-700 text-white hover:bg-rose-800 dark:bg-rose-400 dark:text-slate-950; }
+  .btn-sell-outline { @apply btn bg-white text-rose-700 ring-2 ring-rose-700 hover:bg-rose-50 dark:bg-slate-900 dark:text-rose-300 dark:ring-rose-400; }
+  .input { @apply min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400; }
+  .label { @apply mb-1 block font-semibold; }
+  .muted { @apply text-slate-600 dark:text-slate-300; }
+  .up { @apply text-green-700 dark:text-green-400; }
+  .down { @apply text-red-700 dark:text-red-400; }
+  .chip { @apply inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold; }
+  .big-num { @apply text-[2.2rem] font-bold leading-tight tracking-tight; }
+}

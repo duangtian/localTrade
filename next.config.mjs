@@ -10,6 +10,8 @@ const lanIps = Object.values(os.networkInterfaces())
 const nextConfig = {
   serverExternalPackages: ["better-sqlite3", "yahoo-finance2"],
   allowedDevOrigins: [...lanIps, "*.local"],
+  // ปุ่ม dev ของ Next บังเมนูล่างบนมือถือ
+  devIndicators: false,
 };
 
 export default nextConfig;

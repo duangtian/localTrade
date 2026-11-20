@@ -42,7 +42,7 @@ export function fmtDate(d: string): string {
 
 /** ข้อความ "อัปเดตล่าสุด" */
 export function fmtUpdated(at: string | null | undefined): string {
-  if (!at) return "ยังไม่มีข้อมูลราคา";
+  if (!at) return "ยังไม่มีหุ้นในพอร์ต (เงินสดทั้งหมด)";
   if (at.length === 10) return `ราคาปิดวันที่ ${fmtDate(at)}`;
   const dt = DateTime.fromISO(at).setZone("Asia/Bangkok");
   return `อัปเดตล่าสุด ${dt.toFormat("HH:mm")} น.`;

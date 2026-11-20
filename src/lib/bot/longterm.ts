@@ -125,7 +125,8 @@ export const longTermStrategy: BotStrategy = {
       picks++;
     }
 
-    return { actions, dcaMonth: month };
+    // ถ้ายังซื้ออะไรไม่ได้ (เช่น ตลาดที่ซื้อได้ปิดอยู่) ให้ลองใหม่ครั้งถัดไปในเดือนเดียวกัน
+    return actions.length > 0 ? { actions, dcaMonth: month } : { actions };
   },
 };
 
