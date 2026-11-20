@@ -18,21 +18,36 @@ export function ExchangeForm({ fx, spread, cashThb, cashUsd }: { fx: number; spr
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2" role="group" aria-label="ทิศทางการแลกเงิน">
-        <button type="button" aria-pressed={dir === "THB_TO_USD"} onClick={() => setDir("THB_TO_USD")} className={`btn ${dir === "THB_TO_USD" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}>
+        <button
+          type="button"
+          aria-pressed={dir === "THB_TO_USD"}
+          onClick={() => setDir("THB_TO_USD")}
+          className={`btn ${dir === "THB_TO_USD" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+        >
           บาท → USD
         </button>
-        <button type="button" aria-pressed={dir === "USD_TO_THB"} onClick={() => setDir("USD_TO_THB")} className={`btn ${dir === "USD_TO_THB" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}>
+        <button
+          type="button"
+          aria-pressed={dir === "USD_TO_THB"}
+          onClick={() => setDir("USD_TO_THB")}
+          className={`btn ${dir === "USD_TO_THB" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+        >
           USD → บาท
         </button>
       </div>
       <p className="muted text-[0.85rem]">
-        อัตรา 1 USD = {fmtPrice(rate)} บาท (อัตรากลาง {fmtPrice(fx)} {spread > 0 ? `${dir === "THB_TO_USD" ? "+" : "−"} spread ${(spread * 100).toFixed(2)}%` : "ยังไม่ได้กรอก spread"}) <Term k="fxSpread" />
+        อัตรา 1 USD = {fmtPrice(rate)} บาท (อัตรากลาง {fmtPrice(fx)}{" "}
+        {spread > 0 ? `${dir === "THB_TO_USD" ? "+" : "−"} spread ${(spread * 100).toFixed(2)}%` : "ยังไม่ได้กรอก spread"}) <Term k="fxSpread" />
       </p>
       <label className="label" htmlFor="fx-amt">
         จำนวน ({dir === "THB_TO_USD" ? "บาท" : "USD"}) · มี {dir === "THB_TO_USD" ? fmtMoney(cashThb) : fmtMoney(cashUsd, "USD")}
       </label>
       <input id="fx-amt" className="input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="เช่น 1000" />
-      {result > 0 && <p>จะได้ประมาณ <b>{dir === "THB_TO_USD" ? fmtMoney(result, "USD") : fmtMoney(result)}</b></p>}
+      {result > 0 && (
+        <p>
+          จะได้ประมาณ <b>{dir === "THB_TO_USD" ? fmtMoney(result, "USD") : fmtMoney(result)}</b>
+        </p>
+      )}
       <button
         type="button"
         className="btn-secondary w-full"

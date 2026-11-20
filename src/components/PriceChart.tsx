@@ -40,17 +40,25 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
   useEffect(() => {
     if (!el.current || !data || data.length === 0) return;
     const dark = document.documentElement.classList.contains("dark");
+    const tz = symbol.endsWith(".BK") ? "Asia/Bangkok" : "America/New_York";
+    const tzLabel = symbol.endsWith(".BK") ? "น." : "(เวลา NY)";
+    const hhmm = (t: number) => new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: tz });
     const chart = createChart(el.current, {
       height: 240,
       autoSize: true,
       layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: dark ? "#e2e8f0" : "#334155", fontSize: 13 },
       grid: { vertLines: { visible: false }, horzLines: { color: dark ? "#1e293b" : "#e2e8f0" } },
       rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: typeof data[0].time === "number" },
+      timeScale: {
+        borderVisible: false,
+        timeVisible: typeof data[0].time === "number",
+        // แกนเวลาของกราฟ 1 วันแสดงเป็นเวลาของตลาดนั้น (ค่าเริ่มต้นของไลบรารีเป็น UTC)
+        tickMarkFormatter: (t: unknown) => (typeof t === "number" ? hhmm(t) : null),
+      },
       localization: {
         locale: "th-TH-u-ca-gregory",
         timeFormatter: (t: number | string) =>
-          typeof t === "number" ? new Date(t * 1000).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }) : String(t),
+          typeof t === "number" ? `${hhmm(t)} ${tzLabel}` : String(t),
       },
       handleScroll: false,
       handleScale: false,
@@ -98,22 +106,24 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
           </button>
         ))}
       </div>
-      {data && data.length > 1 && (() => {
-        const first = data[0].close;
-        const last = data[data.length - 1].close;
-        const r = last / first - 1;
-        const d = r > 0.00004 ? "up" : r < -0.00004 ? "down" : "muted";
-        const names: Record<string, string> = { "1D": "ตั้งแต่เปิดตลาด", "1M": "ช่วง 1 เดือน", "3M": "ช่วง 3 เดือน", "1Y": "ช่วง 1 ปี", "5Y": "ช่วง 5 ปี" };
-        return (
-          <p className="mb-1 text-[0.85rem]">
-            <span className="muted">{names[range]}: </span>
-            <span className={`${d} font-semibold`}>
-              {d === "up" ? "▲ +" : d === "down" ? "▼ −" : "■ "}
-              {Math.abs(r * 100).toFixed(2)}%
-            </span>
-          </p>
-        );
-      })()}
+      {data &&
+        data.length > 1 &&
+        (() => {
+          const first = data[0].close;
+          const last = data[data.length - 1].close;
+          const r = last / first - 1;
+          const d = r > 0.00004 ? "up" : r < -0.00004 ? "down" : "muted";
+          const names: Record<string, string> = { "1D": "ตั้งแต่เปิดตลาด", "1M": "ช่วง 1 เดือน", "3M": "ช่วง 3 เดือน", "1Y": "ช่วง 1 ปี", "5Y": "ช่วง 5 ปี" };
+          return (
+            <p className="mb-1 text-[0.85rem]">
+              <span className="muted">{names[range]}: </span>
+              <span className={`${d} font-semibold`}>
+                {d === "up" ? "▲ +" : d === "down" ? "▼ −" : "■ "}
+                {Math.abs(r * 100).toFixed(2)}%
+              </span>
+            </p>
+          );
+        })()}
       <div ref={el} className="h-[240px] w-full" role="img" aria-label={`กราฟราคา ${symbol} ช่วง ${range}`}>
         {!data && !error && <p className="muted pt-20 text-center">กำลังโหลดกราฟ…</p>}
         {error && <p className="muted pt-16 text-center">{error}</p>}

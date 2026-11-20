@@ -30,7 +30,14 @@ export default async function MissionsPage() {
         <p className="big-num">
           {score} <span className="muted text-xl">/ {max}</span>
         </p>
-        <div className="mt-2 h-3 rounded-full bg-slate-200 dark:bg-slate-700" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={max} aria-label="คะแนนวินัย">
+        <div
+          className="mt-2 h-3 rounded-full bg-slate-200 dark:bg-slate-700"
+          role="progressbar"
+          aria-valuenow={score}
+          aria-valuemin={0}
+          aria-valuemax={max}
+          aria-label="คะแนนวินัย"
+        >
           <div className="h-3 rounded-full bg-blue-700 dark:bg-blue-400" style={{ width: `${(score / max) * 100}%` }} />
         </div>
         {next && (
@@ -39,7 +46,7 @@ export default async function MissionsPage() {
           </Link>
         )}
       </section>
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-4 space-y-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
         {missions.map((m) => (
           <li key={m.id} className={`card flex items-start gap-3 ${m.done ? "opacity-90" : ""}`}>
             <span className="text-2xl" aria-hidden>

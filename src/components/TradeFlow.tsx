@@ -122,7 +122,13 @@ export function TradeFlow(p: Props) {
             <legend className="label">ประเภทคำสั่ง</legend>
             <div className="grid grid-cols-2 gap-2">
               {(["market", "limit"] as const).map((t) => (
-                <button key={t} type="button" aria-pressed={type === t} onClick={() => setType(t)} className={`btn ${type === t ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}>
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={type === t}
+                  onClick={() => setType(t)}
+                  className={`btn ${type === t ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+                >
                   {t === "market" ? "Market" : "Limit"}
                 </button>
               ))}
@@ -143,7 +149,13 @@ export function TradeFlow(p: Props) {
                 <button type="button" className="btn-secondary text-xl" aria-label="ลด 100 หุ้น" onClick={() => setLots((v) => Math.max(1, v - 1))}>
                   −
                 </button>
-                <input id="lots" className="input text-center" inputMode="numeric" value={lots * 100} onChange={(e) => setLots(Math.max(1, Math.round(Number(e.target.value.replace(/\D/g, "")) / 100) || 1))} />
+                <input
+                  id="lots"
+                  className="input text-center"
+                  inputMode="numeric"
+                  value={lots * 100}
+                  onChange={(e) => setLots(Math.max(1, Math.round(Number(e.target.value.replace(/\D/g, "")) / 100) || 1))}
+                />
                 <button type="button" className="btn-secondary text-xl" aria-label="เพิ่ม 100 หุ้น" onClick={() => setLots((v) => v + 1)}>
                   +
                 </button>
@@ -155,10 +167,20 @@ export function TradeFlow(p: Props) {
           ) : (
             <div>
               <div className="mb-2 grid grid-cols-2 gap-2" role="group" aria-label="ระบุแบบ">
-                <button type="button" aria-pressed={usMode === "amount"} onClick={() => setUsMode("amount")} className={`btn ${usMode === "amount" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}>
+                <button
+                  type="button"
+                  aria-pressed={usMode === "amount"}
+                  onClick={() => setUsMode("amount")}
+                  className={`btn ${usMode === "amount" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+                >
                   เป็นจำนวนเงิน
                 </button>
-                <button type="button" aria-pressed={usMode === "qty"} onClick={() => setUsMode("qty")} className={`btn ${usMode === "qty" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}>
+                <button
+                  type="button"
+                  aria-pressed={usMode === "qty"}
+                  onClick={() => setUsMode("qty")}
+                  className={`btn ${usMode === "qty" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+                >
                   เป็นจำนวนหุ้น
                 </button>
               </div>
@@ -257,7 +279,13 @@ export function TradeFlow(p: Props) {
               <label className="sr-only" htmlFor="answer">
                 คำตอบของคุณ
               </label>
-              <textarea id="answer" className="input mt-2 min-h-[70px]" placeholder="ลองตอบในใจหรือพิมพ์ไว้ก็ได้ (ไม่บังคับ)" value={answer} onChange={(e) => setAnswer(e.target.value)} />
+              <textarea
+                id="answer"
+                className="input mt-2 min-h-[70px]"
+                placeholder="ลองตอบในใจหรือพิมพ์ไว้ก็ได้ (ไม่บังคับ)"
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+              />
             </div>
           )}
           <dl className="space-y-1">
@@ -290,7 +318,10 @@ export function TradeFlow(p: Props) {
 
       {step === 3 && result && (
         <div className="space-y-3" role="status">
-          <p className="text-lg font-bold">{result.status === "filled" ? "✅ " : "⏳ "}{result.message}</p>
+          <p className="text-lg font-bold">
+            {result.status === "filled" ? "✅ " : "⏳ "}
+            {result.message}
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/portfolio" className="btn-primary">
               ดูพอร์ต

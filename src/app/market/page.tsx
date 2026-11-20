@@ -15,7 +15,10 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
     try {
       const q = await l.ctx.provider.getQuotes(list.map((s) => s.symbol));
       quotes = Object.fromEntries(Object.entries(q).map(([k, v]) => [k, { price: v.price, prevClose: v.prevClose }]));
-      updated = Object.values(q).map((x) => x.fetchedAt).sort()[0] ?? null;
+      updated =
+        Object.values(q)
+          .map((x) => x.fetchedAt)
+          .sort()[0] ?? null;
     } catch {
       /* แสดงรายการโดยไม่มีราคา */
     }
@@ -27,7 +30,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <PageTitle sub={l.game?.mode === "backtest" ? "โหมดย้อนอดีต: ดูราคาในหน้าหุ้นแต่ละตัว" : fmtUpdated(updated)}>ตลาด</PageTitle>
-      <nav aria-label="เลือกตลาด" className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-slate-200 p-1 dark:bg-slate-800">
+      <nav aria-label="เลือกตลาด" className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-slate-200 p-1 dark:bg-slate-800 lg:max-w-md">
         {tabs.map((t) => (
           <Link
             key={t.id}

@@ -20,7 +20,11 @@ export function Term({ k }: { k: GlossaryKey }) {
         ?
       </button>
       {open && (
-        <span id={id} role="note" className="mt-1 block rounded-lg bg-blue-50 px-2 py-1 text-[0.85rem] font-normal text-blue-950 dark:bg-blue-950 dark:text-blue-100">
+        <span
+          id={id}
+          role="note"
+          className="mt-1 block rounded-lg bg-blue-50 px-2 py-1 text-[0.85rem] font-normal text-blue-950 dark:bg-blue-950 dark:text-blue-100"
+        >
           <b>{g.term}:</b> {g.def}
         </span>
       )}

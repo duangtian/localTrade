@@ -26,9 +26,22 @@ export function PortfolioChart({ rows }: { rows: ChartRow[] }) {
             <CartesianGrid stroke={dark ? "#1e293b" : "#e2e8f0"} vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: 12, fill: dark ? "#cbd5e1" : "#475569" }} minTickGap={40} />
             <YAxis tickFormatter={(v) => `${+Number(v).toFixed(1)}%`} tick={{ fontSize: 12, fill: dark ? "#cbd5e1" : "#475569" }} width={56} />
-            <Tooltip formatter={(v) => `${Number(v) > 0 ? "+" : ""}${Number(v).toFixed(2)}%`} contentStyle={{ background: dark ? "#0f172a" : "#fff", border: "1px solid #94a3b8" }} />
+            <Tooltip
+              formatter={(v) => `${Number(v) > 0 ? "+" : ""}${Number(v).toFixed(2)}%`}
+              contentStyle={{ background: dark ? "#0f172a" : "#fff", border: "1px solid #94a3b8" }}
+            />
             {SERIES.filter((s) => show[s.key]).map((s) => (
-              <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={dark ? s.darkColor : s.color} strokeWidth={s.key === "you" ? 3 : 2} dot={false} connectNulls isAnimationActive={false} />
+              <Line
+                key={s.key}
+                type="monotone"
+                dataKey={s.key}
+                name={s.label}
+                stroke={dark ? s.darkColor : s.color}
+                strokeWidth={s.key === "you" ? 3 : 2}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
             ))}
           </LineChart>
         </ResponsiveContainer>

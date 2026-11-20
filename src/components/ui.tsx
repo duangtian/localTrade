@@ -11,17 +11,7 @@ export function Disclaimer() {
 }
 
 /** แสดงการเปลี่ยนแปลง: สี + ลูกศร + เครื่องหมาย (ไม่สื่อด้วยสีอย่างเดียว) */
-export function Change({
-  value,
-  pct,
-  currency = "THB",
-  className = "",
-}: {
-  value?: number;
-  pct?: number;
-  currency?: "THB" | "USD";
-  className?: string;
-}) {
+export function Change({ value, pct, currency = "THB", className = "" }: { value?: number; pct?: number; currency?: "THB" | "USD"; className?: string }) {
   const d = direction(value ?? pct ?? 0);
   const arrow = d === "up" ? "▲" : d === "down" ? "▼" : "■";
   const cls = d === "up" ? "up" : d === "down" ? "down" : "muted";
@@ -70,7 +60,10 @@ export function More({ summary = "ดูเพิ่ม", children }: { summary?
   return (
     <details className="group mt-3">
       <summary className="btn-secondary w-full cursor-pointer list-none">
-        {summary} <span className="transition group-open:rotate-180" aria-hidden>▾</span>
+        {summary}{" "}
+        <span className="transition group-open:rotate-180" aria-hidden>
+          ▾
+        </span>
       </summary>
       <div className="mt-3">{children}</div>
     </details>

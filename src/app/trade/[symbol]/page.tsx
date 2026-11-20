@@ -36,7 +36,7 @@ export default async function TradePage({ params, searchParams }: { params: Prom
   const fx = market === "US" ? ((await l.ctx.provider.getFxRate().catch(() => null))?.rate ?? 0) : 1;
 
   return (
-    <>
+    <div className="mx-auto max-w-2xl">
       <Link href={`/stock/${encodeURIComponent(symbol)}`} className="muted mb-2 inline-flex min-h-[44px] items-center">
         ← {symbol.replace(".BK", "")}
       </Link>
@@ -66,6 +66,6 @@ export default async function TradePage({ params, searchParams }: { params: Prom
         </details>
       )}
       <Disclaimer />
-    </>
+    </div>
   );
 }
