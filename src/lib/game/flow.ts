@@ -1,6 +1,7 @@
 /** ลำดับการทำงานของเกม: Bot, เลื่อนวัน (ย้อนอดีต), sync (เวลาจริง), สรุปผล */
 import { and, eq } from "drizzle-orm";
 import { DateTime } from "luxon";
+import { autoPortfolioIds, autoSymbols, runAutoPortfolios } from "./auto";
 import type { FeeConfig } from "@/config/fees";
 import { BENCHMARKS, BOT_LONGTERM_PICKS, FX_SYMBOL } from "@/config/seeds";
 import { askClaude, aiEnabled } from "@/lib/ai";
@@ -128,8 +129,8 @@ export async function writeSummary(ctx: GameCtx): Promise<string> {
 /** สัญลักษณ์ที่ต้องมีราคาย้อนหลังในเกมนี้ */
 function gameSymbols(db: DB, game: Game): string[] {
   const set = new Set<string>([...BOT_LONGTERM_PICKS, BENCHMARKS.SET, BENCHMARKS.SP500, FX_SYMBOL]);
-  for (const owner of ["player", "bot"] as const) {
-    const pid = getPortfolioId(db, game.id, owner);
+  for (const s of autoSymbols(db, game)) set.add(s);
+  for (const pid of [getPortfolioId(db, game.id, "player"), getPortfolioId(db, game.id, "bot"), ...autoPortfolioIds(db, game.id)]) {
     for (const p of loadState(db, pid).positions) set.add(p.symbol);
     for (const o of pendingOrders(db, pid)) set.add(o.symbol);
   }
@@ -152,6 +153,7 @@ export async function startBacktest(db: DB, base: CachedProvider, game: Game, fe
   await prefetch(base, gameSymbols(db, game), from, now);
   const ctx = makeCtx(db, game, base, fees, now);
   await runBot(ctx);
+  await runAutoPortfolios(ctx);
   await snapshot(ctx, getPortfolioId(db, game.id, "player"));
   await snapshot(ctx, getPortfolioId(db, game.id, "bot"));
 }
@@ -185,6 +187,7 @@ export async function advanceBacktest(db: DB, base: CachedProvider, gameId: numb
     filled += await processPending(ctx, pid);
     await processPending(ctx, bid);
     await runBot(ctx);
+    await runAutoPortfolios(ctx);
     await snapshot(ctx, pid);
     await snapshot(ctx, bid);
   }
@@ -207,6 +210,7 @@ export async function syncLive(db: DB, base: PriceProvider, game: Game, fees: Fe
     await processPending(ctx, pid);
     await processPending(ctx, bid);
     await runBot(ctx);
+    await runAutoPortfolios(ctx);
     await snapshot(ctx, pid);
     await snapshot(ctx, bid);
     const bkk = DateTime.fromJSDate(now).setZone("Asia/Bangkok");

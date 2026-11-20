@@ -2,17 +2,19 @@
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-export type ChartRow = { date: string; you?: number; bot?: number; set?: number; sp?: number };
+export type ChartRow = { date: string; you?: number; bot?: number; dca?: number; dt?: number; set?: number; sp?: number };
 
 const SERIES = [
   { key: "you", label: "พอร์ตคุณ", color: "#3B82F6", darkColor: "#3B82F6", dash: undefined },
   { key: "bot", label: "Bot ถือยาว", color: "#e5e5e5", darkColor: "#e5e5e5", dash: "6 4" },
+  { key: "dca", label: "พอร์ต DCA", color: "#d4d4d4", darkColor: "#d4d4d4", dash: "1 4" },
+  { key: "dt", label: "Bot เดย์เทรด", color: "#bdbdbd", darkColor: "#bdbdbd", dash: "10 3 2 3" },
   { key: "set", label: "ดัชนี SET", color: "#a3a3a3", darkColor: "#a3a3a3", dash: undefined },
   { key: "sp", label: "S&P 500", color: "#737373", darkColor: "#8a8a8a", dash: "2 4" },
 ] as const;
 
 export function PortfolioChart({ rows }: { rows: ChartRow[] }) {
-  const [show, setShow] = useState<Record<string, boolean>>({ you: true, bot: false, set: true, sp: true });
+  const [show, setShow] = useState<Record<string, boolean>>({ you: true, bot: false, dca: false, dt: false, set: true, sp: true });
   const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   if (rows.length < 2) {
@@ -50,7 +52,7 @@ export function PortfolioChart({ rows }: { rows: ChartRow[] }) {
         </ResponsiveContainer>
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4" role="group" aria-label="เลือกเส้นที่แสดง">
-        {SERIES.map((s) => (
+        {SERIES.filter((s) => rows.some((r) => r[s.key] !== undefined)).map((s) => (
           <label key={s.key} className="flex min-h-[44px] cursor-pointer items-center gap-2">
             <input type="checkbox" className="h-5 w-5" checked={show[s.key]} onChange={(e) => setShow({ ...show, [s.key]: e.target.checked })} />
             <span aria-hidden className="inline-block h-1 w-5 rounded" style={{ background: dark ? s.darkColor : s.color, height: s.key === "you" ? 4 : 3 }} />

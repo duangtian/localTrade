@@ -14,7 +14,7 @@ const ITEMS = [
 function isActive(path: string, href: string) {
   if (href === "/") return path === "/";
   if (href === "/market") return ["/market", "/stock", "/trade", "/picks"].some((p) => path.startsWith(p));
-  if (href === "/portfolio") return path.startsWith("/portfolio") || path.startsWith("/plan");
+  if (href === "/portfolio") return ["/portfolio", "/plan", "/dca", "/daytrade"].some((p) => path.startsWith(p));
   return path.startsWith(href);
 }
 

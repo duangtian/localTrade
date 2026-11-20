@@ -11,6 +11,7 @@ import { CANNED_QA } from "@/lib/coach";
 import { getDb } from "@/lib/db/client";
 import { messages } from "@/lib/db/schema";
 import { fmtDate, fmtMoney, fmtPct } from "@/lib/format";
+import { findPortfolioId, viewPortfolio } from "@/lib/game/core";
 import { returns } from "@/lib/game/flow";
 import { loadGame } from "@/lib/server";
 
@@ -27,6 +28,17 @@ export default async function CoachPage() {
   }
   const db = getDb();
   const r = await returns(l.ctx);
+  const autoRet = async (owner: "dca" | "daytrade") => {
+    const id = findPortfolioId(getDb(), l.game.id, owner);
+    return id === null ? null : (await viewPortfolio(l.ctx, id)).valuation.totalThb / l.game.startingCash - 1;
+  };
+  const [dcaRet, dtRet] = await Promise.all([autoRet("dca"), autoRet("daytrade")]);
+  const board = [
+    { label: "พอร์ตคุณ", ret: r.playerReturn as number | null, href: "/portfolio", hint: "" },
+    { label: "Bot ถือยาว", ret: r.botReturn as number | null, href: "", hint: "DCA หุ้นพื้นฐานดี ไม่ขาย" },
+    { label: "Bot เดย์เทรด", ret: dtRet, href: "/daytrade", hint: "ซื้อขายจบในวัน" },
+    { label: "พอร์ต DCA ของคุณ", ret: dcaRet, href: "/dca", hint: "ลงเงินทุกเดือนตามแผนคุณ" },
+  ];
   const all = db.select().from(messages).where(eq(messages.gameId, l.game.id)).orderBy(desc(messages.id)).limit(200).all();
   const cards = all.filter((m) => (m.kind === "summary" || m.kind === "bot_trade") && !m.dismissed).slice(0, 5);
   const old = all.filter((m) => (m.kind === "summary" || m.kind === "bot_trade") && m.dismissed).slice(0, 30);
@@ -44,6 +56,33 @@ export default async function CoachPage() {
 
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
         <div className="min-w-0">
+          <section className="card mb-4">
+            <h2 className="font-semibold">เทียบผลตอบแทนทุกพอร์ต</h2>
+            <p className="faint text-[0.8rem]">ทุกพอร์ตเริ่มด้วยเงิน {fmtMoney(l.game.startingCash)}</p>
+            <ul className="mt-2 divide-y divide-line">
+              {board.map((b) => (
+                <li key={b.label} className="flex min-h-[48px] items-center justify-between gap-3 py-2">
+                  <span className="min-w-0">
+                    {b.href ? (
+                      <Link href={b.href} className="font-medium hover:underline">
+                        {b.label}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{b.label}</span>
+                    )}
+                    {b.hint && <span className="faint block text-[0.8rem]">{b.hint}</span>}
+                  </span>
+                  {b.ret === null ? (
+                    <Link href={b.href} className="btn-secondary min-h-[40px] px-3 text-[0.85rem]">
+                      เริ่ม
+                    </Link>
+                  ) : (
+                    <Change pct={b.ret} />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
           <section className="card">
             <h2 className="font-bold">Bot บุคลิก &quot;{longTermStrategy.name}&quot;</h2>
             <p className="muted text-[0.9rem]">{longTermStrategy.description}</p>

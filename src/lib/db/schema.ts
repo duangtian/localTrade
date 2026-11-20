@@ -15,7 +15,7 @@ export const games = sqliteTable("games", {
 export const portfolios = sqliteTable("portfolios", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   gameId: integer("game_id").notNull(),
-  owner: text("owner", { enum: ["player", "bot"] }).notNull(),
+  owner: text("owner", { enum: ["player", "bot", "dca", "daytrade"] }).notNull(),
   cashThb: real("cash_thb").notNull(),
   cashUsd: real("cash_usd").notNull().default(0),
   lastDcaMonth: text("last_dca_month"),

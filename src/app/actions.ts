@@ -12,6 +12,9 @@ import { getNews, type NewsItem } from "@/lib/analysis/news";
 import { analyzeSymbol, getCachedScan, runScan } from "@/lib/analysis/screen";
 import { buildPlan, clearPlan, executePlan, executeReview, type ExecResult, type PlanMarket } from "@/lib/analysis/planner";
 import type { ReviewAction } from "@/lib/analysis/allocate";
+import { normalizeWeights } from "@/lib/bot/dca";
+import { DEFAULT_DAYTRADE } from "@/lib/bot/daytrade";
+import { getDaytradeConfig, getDcaConfig, runAutoPortfolios, setDaytradeConfig, setDcaConfig } from "@/lib/game/auto";
 import { getIndexStocks, setIndexOverride } from "@/lib/indices";
 import { askClaude, aiEnabled } from "@/lib/ai";
 import { buildAiContext, CANNED_QA, coachQuestion } from "@/lib/coach";
@@ -20,6 +23,9 @@ import { messages } from "@/lib/db/schema";
 import {
   cancelOrder,
   createGame,
+  deletePortfolio,
+  ensurePortfolio,
+  findPortfolioId,
   exchange,
   orderHistory,
   placeOrder,
@@ -268,7 +274,8 @@ export async function buildPlanAction(formData: FormData) {
   const market = (["TH", "US", "BOTH"].includes(String(formData.get("market"))) ? formData.get("market") : "TH") as PlanMarket;
   const maxPositions = Math.min(8, Math.max(2, Number(formData.get("n")) || 5));
   const usePct = Math.min(0.95, Math.max(0.2, Number(formData.get("use")) || 0.7));
-  await buildPlan(getDb(), l.ctx, l.pid, { market, maxPositions, usePct });
+  const style = formData.get("style") === "day" ? "day" : "long";
+  await buildPlan(getDb(), l.ctx, l.pid, { style, market, maxPositions, usePct });
   revalidatePath("/plan");
 }
 
@@ -293,4 +300,89 @@ export async function executeReviewAction(symbol: string, kind: ReviewAction["ki
   const r = await executeReview(getDb(), l.ctx, l.pid, symbol, kind);
   revalidateAll();
   return r;
+}
+
+// ---------- พอร์ต DCA / Bot เดย์เทรด ----------
+
+export async function saveDcaAction(formData: FormData) {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const db = getDb();
+  const items = normalizeWeights(parseDcaItems(String(formData.get("items") ?? "")));
+  const monthly = Math.max(100, Math.round(Number(formData.get("monthly")) || l.game.startingCash / 12));
+  if (items.length === 0) return;
+  const prev = getDcaConfig(db, l.game.id);
+  ensurePortfolio(db, l.game, "dca");
+  setDcaConfig(db, l.game.id, {
+    items,
+    monthly,
+    active: true,
+    startedAt: prev?.startedAt ?? l.ctx.today,
+    // เปลี่ยนแผนกลางเดือน: เดือนนี้ที่ลงไปแล้วไม่ลงซ้ำ
+    done: prev?.done ?? {},
+    bank: prev?.bank ?? {},
+  });
+  await runAutoPortfolios(l.ctx);
+  revalidateAll();
+}
+
+function parseDcaItems(text: string): { symbol: string; weight: number }[] {
+  const out: { symbol: string; weight: number }[] = [];
+  for (const line of text.split(/[\n,;]+/)) {
+    const m = line.trim().toUpperCase().match(/^([A-Z0-9&.\-^]+)\s*[:=\s]\s*(\d+(?:\.\d+)?)\s*%?$/) ?? line.trim().toUpperCase().match(/^([A-Z0-9&.\-^]+)$/);
+    if (!m) continue;
+    let sym = m[1];
+    const weight = m[2] ? Number(m[2]) : 1;
+    if (!sym.includes(".") && findSeed(`${sym}.BK`)) sym = `${sym}.BK`;
+    if (!out.some((o) => o.symbol === sym)) out.push({ symbol: sym, weight });
+  }
+  return out.slice(0, 10);
+}
+
+export async function toggleDcaAction() {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const c = getDcaConfig(getDb(), l.game.id);
+  if (c) setDcaConfig(getDb(), l.game.id, { ...c, active: !c.active });
+  revalidateAll();
+}
+
+export async function resetDcaAction() {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const db = getDb();
+  const pid = findPortfolioId(db, l.game.id, "dca");
+  if (pid !== null) deletePortfolio(db, pid);
+  setDcaConfig(db, l.game.id, null);
+  revalidateAll();
+}
+
+export async function startDaytradeAction(formData: FormData) {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const db = getDb();
+  const market = (["TH", "US", "BOTH"].includes(String(formData.get("market"))) ? formData.get("market") : "BOTH") as "TH" | "US" | "BOTH";
+  const prev = getDaytradeConfig(db, l.game.id);
+  ensurePortfolio(db, l.game, "daytrade");
+  setDaytradeConfig(db, l.game.id, { ...DEFAULT_DAYTRADE, ...(prev ?? {}), market, active: true, startedAt: prev?.startedAt ?? l.ctx.today });
+  await runAutoPortfolios(l.ctx);
+  revalidateAll();
+}
+
+export async function toggleDaytradeAction() {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const c = getDaytradeConfig(getDb(), l.game.id);
+  if (c) setDaytradeConfig(getDb(), l.game.id, { ...c, active: !c.active });
+  revalidateAll();
+}
+
+export async function resetDaytradeAction() {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const db = getDb();
+  const pid = findPortfolioId(db, l.game.id, "daytrade");
+  if (pid !== null) deletePortfolio(db, pid);
+  setDaytradeConfig(db, l.game.id, null);
+  revalidateAll();
 }

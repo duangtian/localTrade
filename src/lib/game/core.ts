@@ -86,7 +86,70 @@ export function createGame(db: DB, mode: Mode, startingCash: number, startDate?:
   return game;
 }
 
-export function getPortfolioId(db: DB, gameId: number, owner: "player" | "bot"): number {
+export type Owner = "player" | "bot" | "dca" | "daytrade";
+
+/** พอร์ตอัตโนมัติ (DCA / เดย์เทรด) สร้างเมื่อผู้เล่นเปิดใช้ ด้วยเงินเท่ากับเงินเริ่มต้นของเกม */
+export function findPortfolioId(db: DB, gameId: number, owner: Owner): number | null {
+  return db.select().from(portfolios).where(and(eq(portfolios.gameId, gameId), eq(portfolios.owner, owner))).get()?.id ?? null;
+}
+
+export function ensurePortfolio(db: DB, game: Game, owner: Owner): number {
+  return findPortfolioId(db, game.id, owner) ?? db.insert(portfolios).values({ gameId: game.id, owner, cashThb: game.startingCash, cashUsd: 0 }).returning().get().id;
+}
+
+/** ลบพอร์ตอัตโนมัติและประวัติทั้งหมด (ใช้ตอน "เริ่มใหม่") */
+export function deletePortfolio(db: DB, id: number) {
+  db.delete(positions).where(eq(positions.portfolioId, id)).run();
+  db.delete(orders).where(eq(orders.portfolioId, id)).run();
+  db.delete(snapshots).where(eq(snapshots.portfolioId, id)).run();
+  db.delete(fxTxns).where(eq(fxTxns.portfolioId, id)).run();
+  db.delete(portfolios).where(eq(portfolios.id, id)).run();
+}
+
+/**
+ * บันทึกการซื้อขายที่ราคาที่กำหนด (ใช้กับ Bot เดย์เทรดในโหมดย้อนอดีต: ซื้อที่ราคาเปิด ขายที่ stop/เป้า/ราคาปิด)
+ * ใช้กติกาเดียวกับผู้เล่น (ค่าคอม, lot, เงินพอ) ผ่าน applyTrade
+ */
+export async function recordFill(
+  ctx: GameCtx,
+  portfolioId: number,
+  input: { symbol: string; side: Side; qty?: number; amountUsd?: number; price: number; reason: string; explanation?: string },
+): Promise<{ ok: true; qty: number; total: number; realizedPnlThb: number | null } | { ok: false; error: string }> {
+  const market = marketOf(input.symbol);
+  const fx = market === "US" ? await fxMid(ctx) : 1;
+  const state = loadState(ctx.db, portfolioId);
+  const r = applyTrade(state, { symbol: input.symbol, market, side: input.side, qty: input.qty, amountUsd: input.amountUsd }, input.price, ctx.fees, fx, ctx.today, reservedFor(ctx.db, portfolioId, ctx.fees));
+  if (!r.ok) return r;
+  saveState(ctx.db, portfolioId, r.value.state);
+  const f = r.value.fill;
+  ctx.db
+    .insert(orders)
+    .values({
+      portfolioId,
+      symbol: input.symbol,
+      market,
+      side: input.side,
+      type: "market",
+      qty: f.qty,
+      amountUsd: market === "US" ? (input.amountUsd ?? null) : null,
+      limitPrice: null,
+      status: "filled",
+      reason: input.reason,
+      explanation: input.explanation ?? null,
+      createdAt: ctx.stamp,
+      filledAt: ctx.stamp,
+      fillPrice: f.price,
+      fillQty: f.qty,
+      commission: f.commission,
+      total: f.total,
+      fxRate: f.fxRate,
+      realizedPnlThb: f.realizedPnlThb,
+    })
+    .run();
+  return { ok: true, qty: f.qty, total: f.total, realizedPnlThb: f.realizedPnlThb };
+}
+
+export function getPortfolioId(db: DB, gameId: number, owner: Owner): number {
   const p = db.select().from(portfolios).where(and(eq(portfolios.gameId, gameId), eq(portfolios.owner, owner))).get();
   if (!p) throw new Error("ไม่พบพอร์ต");
   return p.id;

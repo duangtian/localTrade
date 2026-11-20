@@ -10,7 +10,7 @@ import { CONCENTRATION_WARN } from "@/config/app";
 import { BENCHMARKS, findSeed, sectorOf } from "@/config/seeds";
 import { getDb } from "@/lib/db/client";
 import { fmtDate, fmtMoney, fmtPct, fmtQty, fmtUpdated } from "@/lib/format";
-import { getSnapshots, orderHistory, pendingOrders, reservedFor, type GameCtx } from "@/lib/game/core";
+import { getSnapshots, orderHistory, pendingOrders, reservedFor, type GameCtx, findPortfolioId } from "@/lib/game/core";
 import { returns } from "@/lib/game/flow";
 import { loadGame } from "@/lib/server";
 
@@ -18,6 +18,13 @@ async function benchmarkRows(ctx: GameCtx, pid: number, bid: number, startCash: 
   const db = ctx.db;
   const you = getSnapshots(db, pid);
   const bot = new Map(getSnapshots(db, bid).map((s) => [s.date, s.valueThb]));
+  const snapMap = (owner: "dca" | "daytrade") => {
+    const id = findPortfolioId(db, ctx.game.id, owner);
+    return new Map(id === null ? [] : getSnapshots(db, id).map((s) => [s.date, s.valueThb]));
+  };
+  const dca = snapMap("dca");
+  const dt = snapMap("daytrade");
+  const pctOf = (m: Map<string, number>, d: string) => (m.has(d) ? +((m.get(d)! / startCash - 1) * 100).toFixed(2) : undefined);
   const from = DateTime.fromISO(ctx.game.startDate).minus({ days: 10 }).toISODate()!;
   const series = async (sym: string) => {
     try {
@@ -37,6 +44,8 @@ async function benchmarkRows(ctx: GameCtx, pid: number, bid: number, startCash: 
     date: s.date.slice(5),
     you: +((s.valueThb / startCash - 1) * 100).toFixed(2),
     bot: bot.has(s.date) ? +((bot.get(s.date)! / startCash - 1) * 100).toFixed(2) : undefined,
+    dca: pctOf(dca, s.date),
+    dt: pctOf(dt, s.date),
     set: pctAt(setH, s.date),
     sp: pctAt(spH, s.date),
   }));
@@ -71,13 +80,29 @@ export default async function PortfolioPage() {
   return (
     <>
       <PageTitle sub={fmtUpdated(r.player.updatedAt ?? (l.ctx.mode === "backtest" ? l.ctx.today : null))}>พอร์ต</PageTitle>
-      <Link href="/plan" className="row-link mb-4">
-        <span className="min-w-0 flex-1">
-          <span className="block font-semibold">AI จัดพอร์ต</span>
-          <span className="muted block text-[0.85rem]">ให้ AI เสนอแผนกระจายเงินสด และตรวจหุ้นที่ถืออยู่ คุณกดยืนยันเอง</span>
-        </span>
-        <span aria-hidden className="text-white/45">›</span>
-      </Link>
+      <div className="mb-4 grid gap-2 sm:grid-cols-3">
+        <Link href="/plan" className="row-link">
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">AI จัดพอร์ต</span>
+            <span className="muted block text-[0.8rem]">ถือยาว / เดย์เทรด คุณยืนยันเอง</span>
+          </span>
+          <span aria-hidden className="text-white/45">›</span>
+        </Link>
+        <Link href="/dca" className="row-link">
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">พอร์ต DCA</span>
+            <span className="muted block text-[0.8rem]">ลงเงินทุกเดือนอัตโนมัติ</span>
+          </span>
+          <span aria-hidden className="text-white/45">›</span>
+        </Link>
+        <Link href="/daytrade" className="row-link">
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Bot เดย์เทรด</span>
+            <span className="muted block text-[0.8rem]">ซื้อขายจบในวัน เทียบผล</span>
+          </span>
+          <span aria-hidden className="text-white/45">›</span>
+        </Link>
+      </div>
 
 
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">

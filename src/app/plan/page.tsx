@@ -51,6 +51,21 @@ export default async function PlanPage() {
           <h2 className="section-title mt-0">กระจายเงินสด</h2>
           <form action={buildPlanAction} className="card space-y-3">
             <fieldset>
+              <legend className="label">สไตล์</legend>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="cursor-pointer rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/15">
+                  <input type="radio" name="style" value="long" defaultChecked={(plan?.options.style ?? "long") === "long"} className="sr-only" />
+                  <span className="block font-semibold">ถือยาว</span>
+                  <span className="muted block text-[0.8rem]">แนวโน้มดี กระจายกลุ่ม ถือเป็นเดือน มี stop ตามความผันผวน</span>
+                </label>
+                <label className="cursor-pointer rounded-2xl border border-white/10 bg-white/[0.04] p-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/15">
+                  <input type="radio" name="style" value="day" defaultChecked={plan?.options.style === "day"} className="sr-only" />
+                  <span className="block font-semibold">เดย์เทรด</span>
+                  <span className="muted block text-[0.8rem]">สัญญาณวันนี้ stop −2% เป้า +3% ปิดสถานะภายในวัน</span>
+                </label>
+              </div>
+            </fieldset>
+            <fieldset>
               <legend className="label">ซื้อหุ้นตลาด</legend>
               <div className="flex flex-wrap gap-2">
                 <Choice name="market" value="TH" label="ไทย" defaultChecked={(plan?.options.market ?? "TH") === "TH"} />
@@ -84,7 +99,7 @@ export default async function PlanPage() {
             <div className="mt-4 space-y-3">
               <div className="card">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-semibold">แผนที่เสนอ</h3>
+                  <h3 className="font-semibold">แผนที่เสนอ · {plan.options.style === "day" ? "เดย์เทรด" : "ถือยาว"}</h3>
                   <span className="muted text-[0.85rem]">
                     ใช้ ≈ {fmtMoney(plan.usedThb)} จากเงินสด {fmtMoney(plan.cashThb)}
                   </span>

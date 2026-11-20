@@ -7,6 +7,7 @@ import type { FeeConfig } from "@/config/fees";
 import { commission } from "@/lib/rules/fees";
 
 export const AI_PLAN_PREFIX = "[แผน AI]";
+export const DAY_TAG = "[เดย์เทรด]";
 
 export interface Candidate {
   symbol: string;
@@ -153,12 +154,16 @@ export interface HoldingForReview {
   target: number | null;
   score: number | null;
   trend: "up" | "down" | "side" | null;
+  /** ซื้อจากแผนเดย์เทรด */
+  isDay?: boolean;
+  openedToday?: boolean;
+  minutesToClose?: number;
 }
 
 export interface ReviewAction {
   symbol: string;
   name: string;
-  kind: "stop" | "target" | "trend" | "trim";
+  kind: "stop" | "target" | "trend" | "trim" | "dayclose";
   qty: number;
   title: string;
   why: string;
@@ -170,6 +175,17 @@ export function reviewHoldings(hs: HoldingForReview[], maxWeight = 0.3, trimTo =
   const out: ReviewAction[] = [];
   for (const h of hs) {
     if (h.qty <= 0) continue;
+    if (h.isDay && (h.openedToday === false || (h.minutesToClose ?? 999) <= 30)) {
+      out.push({
+        symbol: h.symbol,
+        name: h.name,
+        kind: "dayclose",
+        qty: h.qty,
+        title: "ขายปิดสถานะเดย์เทรด",
+        why: h.openedToday === false ? "ไม้เดย์เทรดค้างข้ามคืน ควรปิดตามแผน ไม่เปลี่ยนเป็นถือยาวเพราะไม่อยากขาดทุน" : "ใกล้ตลาดปิดแล้ว เดย์เทรดต้องปิดสถานะภายในวัน",
+      });
+      continue;
+    }
     if (h.stopLoss && h.price <= h.stopLoss) {
       out.push({ symbol: h.symbol, name: h.name, kind: "stop", qty: h.qty, title: "ขายทั้งหมด: หลุด stop-loss", why: `ราคา ${h.price} ต่ำกว่า stop-loss ${h.stopLoss} ที่ตั้งไว้ วินัยคือขายตามแผน ไม่รอลุ้น` });
       continue;

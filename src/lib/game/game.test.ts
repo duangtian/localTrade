@@ -191,7 +191,7 @@ describe("AI จัดพอร์ต: เสนอแผน → ยืนยั
     const ctx = makeCtx(db, game, cached, FEES, NOW);
     const pid = getPortfolioId(db, game.id, "player");
 
-    const plan = await buildPlan(db, ctx, pid, { market: "BOTH", maxPositions: 4, usePct: 0.8 });
+    const plan = await buildPlan(db, ctx, pid, { style: "long", market: "BOTH", maxPositions: 4, usePct: 0.8 });
     expect(plan.items.length).toBeGreaterThan(0);
     expect(plan.items.every((i) => i.orderType === "market")).toBe(true);
     expect(plan.usedThb).toBeLessThanOrEqual(plan.budgetThb + 1);
@@ -210,5 +210,90 @@ describe("AI จัดพอร์ต: เสนอแผน → ยืนยั
     }
     const v = await viewPortfolio(ctx, pid);
     expect(v.state.cashThb).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("พอร์ตอัตโนมัติในโหมดย้อนอดีต (DCA + เดย์เทรด)", () => {
+  it("DCA ซื้อทุกเดือน, เดย์เทรดไม่ถือข้ามคืน และไม่ใช้ราคาหลังวันจำลอง", async () => {
+    const { setDcaConfig, setDaytradeConfig } = await import("./auto");
+    const { DEFAULT_DAYTRADE } = await import("@/lib/bot/daytrade");
+    const { ensurePortfolio, loadState: ls } = await import("./core");
+    const syms = ["PTT.BK", "KBANK.BK", "AOT.BK", "CPALL.BK", "DELTA.BK", "ADVANC.BK", "SCB.BK", "AAPL", "MSFT", "NVDA", "TSLA", "AMD", "AMZN"];
+    const days = 420;
+    // ราคาขึ้นช้า ๆ + แกว่ง และ gap เปิดสูงทุกวันจันทร์ (ให้มีสัญญาณเข้า)
+    const base: Record<string, number> = { [FX_SYMBOL]: 30, [BENCHMARKS.SET]: 1500, [BENCHMARKS.SP500]: 3000 };
+    for (const s of BOT_LONGTERM_PICKS) base[s] = 20;
+    const path: Record<string, number[]> = { [FX_SYMBOL]: Array(days).fill(30) };
+    syms.forEach((s, k) => {
+      base[s] = s.endsWith(".BK") ? 20 + k : 80 + k * 10;
+      path[s] = Array.from({ length: days }, (_, i) => +(base[s] * Math.pow(1.002, i) * (1 + 0.02 * Math.sin(i / 2 + k))).toFixed(2));
+    });
+    const fake = new FakeProvider({ start: "2019-01-01", days, base, path });
+    const db = openDb(":memory:");
+    const cached = new CachedProvider(fake, db, () => NOW);
+    const game = createGame(db, "backtest", 100_000, "2019-11-04", NOW);
+    const dcaPid = ensurePortfolio(db, game, "dca");
+    const dtPid = ensurePortfolio(db, game, "daytrade");
+    setDcaConfig(db, game.id, { items: [{ symbol: "PTT.BK", weight: 0.5 }, { symbol: "AAPL", weight: 0.5 }], monthly: 10_000, active: true, startedAt: game.startDate, done: {}, bank: {} });
+    setDaytradeConfig(db, game.id, { ...DEFAULT_DAYTRADE, gapPct: 0.001, startedAt: game.startDate });
+
+    await startBacktest(db, cached, game, FEES, NOW);
+    await advanceBacktest(db, cached, game.id, "month", FEES, NOW);
+    await advanceBacktest(db, cached, game.id, "month", FEES, NOW);
+
+    const dcaBuys = orderHistory(db, dcaPid, 500).filter((o) => o.side === "buy" && o.status === "filled");
+    const months = new Set(dcaBuys.filter((o) => o.symbol === "AAPL").map((o) => o.createdAt.slice(0, 7)));
+    expect(months.size).toBe(3); // พ.ย. ธ.ค. ม.ค.
+    expect(ls(db, dcaPid).positions.length).toBe(2);
+
+    // เดย์เทรด: ทุกไม้ซื้อและขายในวันเดียวกัน ไม่เหลือหุ้นข้ามคืน
+    const dt = orderHistory(db, dtPid, 2000).filter((o) => o.status === "filled");
+    expect(dt.length).toBeGreaterThan(0);
+    const byDay = new Map<string, number>();
+    for (const o of dt) byDay.set(`${o.createdAt}|${o.symbol}`, (byDay.get(`${o.createdAt}|${o.symbol}`) ?? 0) + (o.side === "buy" ? o.fillQty! : -o.fillQty!));
+    for (const v of byDay.values()) expect(Math.abs(v)).toBeLessThan(1e-6);
+    expect(ls(db, dtPid).positions).toEqual([]);
+    // ไม่มีคำสั่งหลังวันจำลอง
+    const sim = db.select().from((await import("@/lib/db/schema")).games).all().find((g) => g.id === game.id)!.simDate!;
+    for (const o of [...dt, ...dcaBuys]) expect(o.createdAt <= sim).toBe(true);
+  });
+});
+
+describe("AI จัดพอร์ตสไตล์เดย์เทรด (โหมดย้อนอดีต)", () => {
+  it("ยืนยันแล้วจำลองทั้งวัน: ซื้อที่ราคาเปิด ขายในวันเดียวกัน ไม่เหลือหุ้น", async () => {
+    const { buildPlan, executePlan } = await import("@/lib/analysis/planner");
+    const { DT_UNIVERSE } = await import("@/lib/bot/daytrade");
+    const days = 420;
+    const base: Record<string, number> = { [FX_SYMBOL]: 30 };
+    const path: Record<string, number[]> = { [FX_SYMBOL]: Array(days).fill(30) };
+    DT_UNIVERSE.forEach((s, k) => {
+      base[s] = s.endsWith(".BK") ? 20 + k : 80 + k * 10;
+      path[s] = Array.from({ length: days }, (_, i) => +(base[s] * Math.pow(1.008, i)).toFixed(2)); // ขึ้นวันละ 0.8%
+    });
+    // ราคาเปิด = ราคาปิดเมื่อวาน × ~1.007 (gap up) ระหว่างวันแกว่ง ±1% ไม่แตะ stop/เป้า → ขายที่ราคาปิด
+    const fake = new FakeProvider({ start: "2019-01-01", days, base, path });
+    const gappy = {
+      ...fake,
+      name: "gappy",
+      getQuote: fake.getQuote.bind(fake),
+      getQuotes: fake.getQuotes.bind(fake),
+      getFxRate: fake.getFxRate.bind(fake),
+      getHistory: async (s: string, f: string, t: string, i: "1d" | "5m") =>
+        (await fake.getHistory(s, f, t, i)).map((b) => (s === FX_SYMBOL ? b : { ...b, open: +(b.close * 0.999).toFixed(2), low: +(b.close * 0.99).toFixed(2), high: +(b.close * 1.01).toFixed(2) })),
+    };
+    const db = openDb(":memory:");
+    const cached = new CachedProvider(gappy as never, db, () => NOW);
+    const game = createGame(db, "backtest", 100_000, "2019-12-02", NOW);
+    const ctx = makeCtx(db, game, cached, FEES, NOW);
+    const pid = getPortfolioId(db, game.id, "player");
+    const plan = await buildPlan(db, ctx, pid, { style: "day", market: "TH", maxPositions: 3, usePct: 0.6 });
+    expect(plan.items.length).toBeGreaterThan(0);
+    const res = await executePlan(db, ctx, pid);
+    expect(res.every((r) => r.ok)).toBe(true);
+    const v = await viewPortfolio(ctx, pid);
+    expect(v.state.positions).toEqual([]);
+    const fills = orderHistory(db, pid).filter((o) => o.status === "filled");
+    expect(fills.filter((o) => o.side === "buy").length).toBe(plan.items.length);
+    expect(fills.filter((o) => o.side === "sell").length).toBe(plan.items.length);
   });
 });

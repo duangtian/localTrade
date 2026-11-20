@@ -16,9 +16,17 @@ import { findSeed, sectorOf } from "@/config/seeds";
 import { AI_PLAN_PREFIX, allocatePlan, reviewHoldings, type Candidate, type PlanItem, type ReviewAction } from "./allocate";
 import { analyzeSymbol, getCachedScan, runScan } from "./screen";
 import { suggestLevels } from "./levels";
+import { DAY_TAG } from "./allocate";
+import { DT_UNIVERSE, entrySignal, liveDecide, simulateDay } from "@/lib/bot/daytrade";
+import { minutesInfo, sessionBars } from "@/lib/game/auto";
+import { exchangeDate } from "@/lib/rules/hours";
+import { ceilToTick, floorToTick, round2 } from "@/lib/rules/tick";
+import { recordFill } from "@/lib/game/core";
 
 export type PlanMarket = "TH" | "US" | "BOTH";
+export type PlanStyle = "long" | "day";
 export interface PlanOptions {
+  style: PlanStyle;
   market: PlanMarket;
   maxPositions: number;
   usePct: number;
@@ -58,6 +66,7 @@ async function scanFor(db: DB, ctx: GameCtx, id: IndexId) {
 }
 
 export async function buildPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOptions): Promise<Plan> {
+  if (options.style === "day") return buildDayPlan(db, ctx, pid, options);
   const universes: IndexId[] = options.market === "TH" ? ["set50"] : options.market === "US" ? ["us_popular"] : ["set50", "us_popular"];
   const rows = (await Promise.all(universes.map((u) => scanFor(db, ctx, u)))).flatMap((s) => s.rows);
 
@@ -74,8 +83,23 @@ export async function buildPlan(db: DB, ctx: GameCtx, pid: number, options: Plan
     const price = quotes[g.symbol]?.price ?? g.a.price;
     const market = g.symbol.endsWith(".BK") ? "TH" : "US";
     const bars = await ctx.provider.getHistory(g.symbol, from, ctx.today, "1d").catch(() => []);
-    const lv = suggestLevels(bars.filter((b) => b.date.slice(0, 10) <= ctx.today), price, market);
-    candidates.push({ symbol: g.symbol, name: g.name, sector: g.sector, market, price, score: g.a.score, r6m: g.a.r6m, trendLabel: g.a.label, stop: lv?.stop ?? null, target: lv?.target ?? null });
+    const lv = suggestLevels(
+      bars.filter((b) => b.date.slice(0, 10) <= ctx.today),
+      price,
+      market,
+    );
+    candidates.push({
+      symbol: g.symbol,
+      name: g.name,
+      sector: g.sector,
+      market,
+      price,
+      score: g.a.score,
+      r6m: g.a.r6m,
+      trendLabel: g.a.label,
+      stop: lv?.stop ?? null,
+      target: lv?.target ?? null,
+    });
   }
 
   const view = await viewPortfolio(ctx, pid);
@@ -147,6 +171,179 @@ export async function buildPlan(db: DB, ctx: GameCtx, pid: number, options: Plan
   return plan;
 }
 
+const DAY_STOP = 0.02;
+const DAY_TARGET = 0.03;
+
+/**
+ * แผนเดย์เทรด: หาหุ้นที่มีสัญญาณ "วันนี้"
+ * - ย้อนอดีต: gap up ตอนเปิด + แนวโน้มขาขึ้น (ใช้แท่งถึงเมื่อวาน + ราคาเปิดวันจำลอง) → ยืนยันแล้วจำลองทั้งวันทันที
+ * - เวลาจริง: ทะลุจุดสูงสุด 30 นาทีแรก ภายใน 90 นาทีแรก (แท่ง 5 นาที)
+ */
+async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOptions): Promise<Plan> {
+  const universe = DT_UNIVERSE.filter((s) => (options.market === "BOTH" ? true : options.market === "TH" ? s.endsWith(".BK") : !s.endsWith(".BK")));
+  const found: { c: Candidate; why: string; strength: number }[] = [];
+  const from45 = DateTime.fromISO(ctx.today).minus({ days: 45 }).toISODate()!;
+  let marketClosed = 0;
+  const noSignal: { symbol: string; why: string }[] = [];
+  for (const s of universe) {
+    const market = s.endsWith(".BK") ? "TH" : "US";
+    try {
+      let price: number;
+      let why: string;
+      let strength: number;
+      if (ctx.mode === "backtest") {
+        const today = await ctx.bounded!.barOn(s, ctx.today);
+        if (!today) {
+          marketClosed++;
+          noSignal.push({ symbol: s, why: "วันจำลองนี้ไม่มีการซื้อขาย (วันหยุดตลาด)" });
+          continue;
+        }
+        const past = await ctx.provider.getHistory(s, from45, DateTime.fromISO(ctx.today).minus({ days: 1 }).toISODate()!, "1d");
+        const sig = entrySignal(s, past, today.open, { gapPct: 0.005 });
+        if (!sig) {
+          noSignal.push({ symbol: s, why: "ไม่มี gap up ในแนวโน้มขาขึ้น" });
+          continue;
+        }
+        price = today.open;
+        why = sig.why;
+        strength = sig.gap;
+      } else {
+        const tr = await tradable(ctx, s);
+        if (!tr.ok) {
+          marketClosed++;
+          noSignal.push({ symbol: s, why: tr.reason });
+          continue;
+        }
+        const q = await ctx.provider.getQuote(s);
+        const intraday = await ctx.provider.getHistory(s, DateTime.fromISO(ctx.today).minus({ days: 5 }).toISODate()!, ctx.today, "5m");
+        const day = exchangeDate(market, ctx.now);
+        const mi0 = minutesInfo(s, ctx.now);
+        const bars = sessionBars(
+          s,
+          intraday.filter((b) => exchangeDate(market, new Date(b.date)) === day),
+          mi0.sessionOpenMin,
+        );
+        const closes = (await ctx.provider.getHistory(s, from45, ctx.today, "1d")).filter((b) => b.date < day).map((b) => b.close);
+        const ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null;
+        const mi = minutesInfo(s, ctx.now);
+        const d = liveDecide({
+          bars,
+          price: q.price,
+          prevClose: q.prevClose,
+          ma20,
+          holding: null,
+          tradedToday: false,
+          minutesSinceOpen: mi.sinceOpen,
+          minutesToClose: mi.toClose,
+          cfg: { stopPct: DAY_STOP, targetPct: DAY_TARGET, gapPct: 0.005 },
+        });
+        if (!d || d.action !== "buy") {
+          noSignal.push({
+            symbol: s,
+            why:
+              mi.sinceOpen < 30
+                ? "รอครบ 30 นาทีแรกของรอบก่อน (opening range)"
+                : mi.sinceOpen > 90
+                  ? "เลยช่วงเข้าซื้อ (30–90 นาทีหลังเปิดรอบ) แล้ว"
+                  : "ยังไม่มีสัญญาณ (ไม่ทะลุจุดสูงสุด 30 นาทีแรก หรือไม่อยู่ในแนวโน้มขาขึ้น)",
+          });
+          continue;
+        }
+        price = q.price;
+        why = d.why;
+        strength = q.prevClose ? q.price / q.prevClose - 1 : 0;
+      }
+      const th = market === "TH";
+      const stop = th ? floorToTick(price * (1 - DAY_STOP)) : round2(price * (1 - DAY_STOP));
+      const target = th ? ceilToTick(price * (1 + DAY_TARGET)) : round2(price * (1 + DAY_TARGET));
+      found.push({
+        c: { symbol: s, name: findSeed(s)?.name ?? s, sector: sectorOf(s), market, price, score: 0, r6m: null, trendLabel: "สัญญาณเดย์เทรด", stop, target },
+        why,
+        strength,
+      });
+    } catch (e) {
+      noSignal.push({ symbol: s, why: `ดึงข้อมูลไม่สำเร็จ: ${(e as Error).message}` });
+    }
+  }
+  found.sort((a, b) => b.strength - a.strength);
+
+  const view = await viewPortfolio(ctx, pid);
+  const reserved = reservedFor(db, pid, ctx.fees);
+  const mid = await fxMid(ctx).catch(() => 0);
+  const fxBuy = mid > 0 ? buyUsdRate(ctx.fees, mid) : 0;
+  const cashThb = Math.max(0, view.state.cashThb - reserved.thb);
+  const cashUsd = Math.max(0, view.state.cashUsd - reserved.usd);
+  const res = allocatePlan({
+    candidates: found.map((f) => f.c).filter((c) => c.market === "TH" || fxBuy > 0),
+    cashThb,
+    cashUsd,
+    fxBuy: fxBuy || 1,
+    totalValueThb: view.valuation.totalThb,
+    holdings: view.valuation.holdings.map((h) => ({ symbol: h.symbol, sector: sectorOf(h.symbol), valueThb: h.marketValueThb })),
+    maxPositions: options.maxPositions,
+    usePct: options.usePct,
+    maxWeight: 0.34,
+    maxPerSector: 3,
+    fees: ctx.fees,
+  });
+  const whyOf = new Map(found.map((f) => [f.c.symbol, f.why]));
+  const items: Plan["items"] = res.items.map((it) => ({
+    ...it,
+    orderType: "market" as const,
+    reason: `${DAY_TAG} ${whyOf.get(it.symbol)} · ตัดขาดทุน ${it.stop} (−${DAY_STOP * 100}%) · เป้า ${it.target} (+${DAY_TARGET * 100}%) · ปิดสถานะภายในวันนี้`,
+  }));
+
+  let commentary: string;
+  if (items.length) {
+    commentary = `เดย์เทรด ${items.length} ตัว ใช้เงิน ≈ ฿${Math.round(res.usedThb).toLocaleString("en-US")} ทุกตัวตั้ง stop −2% และเป้า +3% (เสี่ยง 1 ได้ 1.5) และต้องปิดสถานะภายในวัน`;
+    commentary +=
+      ctx.mode === "backtest"
+        ? " · โหมดย้อนอดีต: กดยืนยันแล้วจะจำลองทั้งวันทันที (ซื้อที่ราคาเปิด ขายเมื่อแตะ stop/เป้า หรือขายที่ราคาปิด)"
+        : " · หลังซื้อ กลับมาที่หน้านี้เพื่อดูคำแนะนำขาย (หลุด stop / ถึงเป้า / ใกล้ปิดตลาด)";
+    commentary += " · ระวัง: ค่าคอมเกิดทั้งขาซื้อและขายทุกวัน เดย์เทรดจึงต้องชนะบ่อยพอจะชดเชยค่าคอม";
+  } else {
+    commentary =
+      marketClosed === universe.length && ctx.mode === "backtest"
+        ? `วันจำลอง ${ctx.today} ตลาดปิด (วันหยุด) ไม่มีการซื้อขาย ลองเลื่อนไปวันทำการถัดไปที่หน้าแรก`
+        : marketClosed === universe.length
+          ? "ตลาดปิดอยู่ เดย์เทรดต้องทำตอนตลาดเปิด (ไทย 10:00–16:30, สหรัฐฯ ประมาณ 20:30/21:30–03:00/04:00 เวลาไทย)"
+          : "วันนี้ยังไม่มีหุ้นที่เข้าเงื่อนไขเดย์เทรด (gap up ในแนวโน้มขาขึ้น / ทะลุจุดสูงสุด 30 นาทีแรก) ไม่เทรดก็เป็นการตัดสินใจที่ดีได้";
+  }
+
+  let byAi = false;
+  if (items.length && aiEnabled(db)) {
+    const t = await askClaude(
+      db,
+      "อธิบายแผนเดย์เทรดนี้ให้ผู้เรียน 3–5 ประโยค: สัญญาณที่ใช้ ความเสี่ยงของเดย์เทรด (ค่าคอม, ความผันผวนระหว่างวัน, วินัยตัดขาดทุน) และสิ่งที่ควรถามตัวเองก่อนยืนยัน ห้ามรับประกันผล",
+      [
+        ctx.mode === "backtest" ? `โหมดย้อนอดีต วันจำลอง ${ctx.today} (ห้ามใช้ความรู้หลังวันนี้)` : `โหมดเวลาจริง ${ctx.today}`,
+        ...items.map((i) => `- ${i.symbol} ${i.qty ? `${i.qty} หุ้น` : `$${i.amountUsd}`} ที่ ${i.price} · ${i.reason}`),
+      ].join("\n"),
+    );
+    if (t) {
+      commentary = t;
+      byAi = true;
+    }
+  }
+
+  const plan: Plan = {
+    createdAt: new Date().toISOString(),
+    today: ctx.today,
+    mode: ctx.mode,
+    options,
+    items,
+    exchangeThb: res.exchangeThb,
+    usedThb: res.usedThb,
+    budgetThb: res.budgetThb,
+    cashThb,
+    skipped: [...res.skipped, ...noSignal].slice(0, 15),
+    commentary,
+    byAi,
+  };
+  kvSet(db, planKey(ctx), plan);
+  return plan;
+}
+
 export interface ExecResult {
   symbol: string;
   ok: boolean;
@@ -161,6 +358,36 @@ export async function executePlan(db: DB, ctx: GameCtx, pid: number): Promise<Ex
   if (plan.exchangeThb > 0) {
     const r = await exchange(ctx, pid, "THB_TO_USD", plan.exchangeThb);
     out.push({ symbol: "แลกเงิน", ok: r.ok, message: r.ok ? `แลก ฿${plan.exchangeThb.toLocaleString("en-US")} เป็น USD แล้ว` : r.error });
+  }
+  if (plan.options.style === "day" && ctx.mode === "backtest") {
+    for (const it of plan.items) {
+      const reason = `${AI_PLAN_PREFIX} ${it.reason}`.slice(0, 500);
+      const buy = await recordFill(ctx, pid, {
+        symbol: it.symbol,
+        side: "buy",
+        qty: it.qty ?? undefined,
+        amountUsd: it.amountUsd ?? undefined,
+        price: it.price,
+        reason,
+      });
+      if (!buy.ok) {
+        out.push({ symbol: it.symbol, ok: false, message: buy.error });
+        continue;
+      }
+      const bar = await ctx.bounded!.barOn(it.symbol, ctx.today);
+      const o = simulateDay(it.symbol, bar!, { stopPct: DAY_STOP, targetPct: DAY_TARGET });
+      const sell = await recordFill(ctx, pid, {
+        symbol: it.symbol,
+        side: "sell",
+        qty: buy.qty,
+        price: o.exit,
+        reason: `${AI_PLAN_PREFIX} ${DAY_TAG} ${o.why}`,
+      });
+      const pnl =
+        sell.ok && sell.realizedPnlThb !== null ? ` · กำไร/ขาดทุน ${sell.realizedPnlThb >= 0 ? "+" : "−"}฿${Math.abs(sell.realizedPnlThb).toFixed(2)}` : "";
+      out.push({ symbol: it.symbol, ok: sell.ok, message: `ซื้อที่ ${it.price} → ${o.why}${pnl}` });
+    }
+    return out;
   }
   for (const it of plan.items) {
     const r = await placeOrder(
@@ -211,6 +438,9 @@ export async function buildReview(db: DB, ctx: GameCtx, pid: number): Promise<Re
       target: lastBuy?.targetPrice ?? null,
       score: a?.score ?? null,
       trend: a?.trend ?? null,
+      isDay: !!lastBuy?.reason.includes(DAY_TAG),
+      openedToday: h.openedAt === ctx.today,
+      minutesToClose: ctx.mode === "live" ? minutesInfo(h.symbol, ctx.now).toClose : undefined,
     });
   }
   return reviewHoldings(hs);
