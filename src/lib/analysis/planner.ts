@@ -45,6 +45,9 @@ export interface Plan {
   skipped: { symbol: string; why: string }[];
   commentary: string;
   byAi: boolean;
+  /** จำนวนหุ้นที่ตรวจ และที่ผ่านเงื่อนไข (ก่อนจัดสรรเงิน) */
+  checked?: number;
+  matched?: number;
 }
 
 const planKey = (ctx: GameCtx) => `plan:${ctx.game.id}`;
@@ -71,10 +74,15 @@ export async function buildPlan(db: DB, ctx: GameCtx, pid: number, options: Plan
   const rows = (await Promise.all(universes.map((u) => scanFor(db, ctx, u)))).flatMap((s) => s.rows);
 
   // คัดเฉพาะตัวที่สถิติสนับสนุน: คะแนน ≥ 58, ไม่ใช่ขาลง, RSI ไม่ร้อนแรงเกิน
-  const good = rows
-    .filter((r) => r.a.score >= 58 && r.a.trend !== "down" && (r.a.rsi14 === null || r.a.rsi14 < 75))
-    .sort((a, b) => b.a.score - a.a.score)
-    .slice(0, options.maxPositions * 4);
+  const passes = (r: (typeof rows)[number]) => r.a.score >= 58 && r.a.trend !== "down" && (r.a.rsi14 === null || r.a.rsi14 < 75);
+  const failedRule = rows
+    .filter((r) => !passes(r))
+    .map((r) => ({
+      symbol: r.symbol,
+      why: r.a.trend === "down" ? "แนวโน้มเป็นขาลง" : r.a.rsi14 !== null && r.a.rsi14 >= 75 ? "ขึ้นเร็วเกินไป (RSI ≥ 75)" : "คะแนนสถิติต่ำกว่า 58",
+    }));
+  const matchedAll = rows.filter(passes).sort((a, b) => b.a.score - a.a.score);
+  const good = matchedAll.slice(0, options.maxPositions * 4);
 
   const quotes = await ctx.provider.getQuotes(good.map((g) => g.symbol)).catch(() => ({}) as Record<string, { price: number }>);
   const from = DateTime.fromISO(ctx.today).minus({ days: 200 }).toISODate()!;
@@ -163,7 +171,9 @@ export async function buildPlan(db: DB, ctx: GameCtx, pid: number, options: Plan
     usedThb: res.usedThb,
     budgetThb: res.budgetThb,
     cashThb,
-    skipped: res.skipped.slice(0, 8),
+    skipped: [...res.skipped, ...failedRule],
+    checked: rows.length,
+    matched: matchedAll.length,
     commentary,
     byAi,
   };
@@ -180,12 +190,17 @@ const DAY_TARGET = 0.03;
  * - เวลาจริง: ทะลุจุดสูงสุด 30 นาทีแรก ภายใน 90 นาทีแรก (แท่ง 5 นาที)
  */
 async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOptions): Promise<Plan> {
-  const universe = DT_UNIVERSE.filter((s) => (options.market === "BOTH" ? true : options.market === "TH" ? s.endsWith(".BK") : !s.endsWith(".BK")));
+  const pool = [
+    ...(options.market !== "US" ? getIndexStocks(db, "set50").stocks.map((x) => x.symbol) : []),
+    ...(options.market !== "TH" ? getIndexStocks(db, "us_popular").stocks.map((x) => x.symbol) : []),
+  ];
+  const universe = [...new Set([...pool, ...DT_UNIVERSE.filter((s) => (options.market === "BOTH" ? true : options.market === "TH" ? s.endsWith(".BK") : !s.endsWith(".BK")))])];
   const found: { c: Candidate; why: string; strength: number }[] = [];
   const from45 = DateTime.fromISO(ctx.today).minus({ days: 45 }).toISODate()!;
   let marketClosed = 0;
   const noSignal: { symbol: string; why: string }[] = [];
-  for (const s of universe) {
+  let next = 0;
+  const checkOne = async (s: string) => {
     const market = s.endsWith(".BK") ? "TH" : "US";
     try {
       let price: number;
@@ -195,14 +210,14 @@ async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOpti
         const today = await ctx.bounded!.barOn(s, ctx.today);
         if (!today) {
           marketClosed++;
-          noSignal.push({ symbol: s, why: "วันจำลองนี้ไม่มีการซื้อขาย (วันหยุดตลาด)" });
-          continue;
+          noSignal.push({ symbol: s, why: "ไม่มีราคาวันจำลองนี้ (วันหยุดตลาด หรือหุ้นยังไม่เข้าตลาด)" });
+          return;
         }
         const past = await ctx.provider.getHistory(s, from45, DateTime.fromISO(ctx.today).minus({ days: 1 }).toISODate()!, "1d");
         const sig = entrySignal(s, past, today.open, { gapPct: 0.005 });
         if (!sig) {
           noSignal.push({ symbol: s, why: "ไม่มี gap up ในแนวโน้มขาขึ้น" });
-          continue;
+          return;
         }
         price = today.open;
         why = sig.why;
@@ -212,7 +227,7 @@ async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOpti
         if (!tr.ok) {
           marketClosed++;
           noSignal.push({ symbol: s, why: tr.reason });
-          continue;
+          return;
         }
         const q = await ctx.provider.getQuote(s);
         const intraday = await ctx.provider.getHistory(s, DateTime.fromISO(ctx.today).minus({ days: 5 }).toISODate()!, ctx.today, "5m");
@@ -247,7 +262,7 @@ async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOpti
                   ? "เลยช่วงเข้าซื้อ (30–90 นาทีหลังเปิดรอบ) แล้ว"
                   : "ยังไม่มีสัญญาณ (ไม่ทะลุจุดสูงสุด 30 นาทีแรก หรือไม่อยู่ในแนวโน้มขาขึ้น)",
           });
-          continue;
+          return;
         }
         price = q.price;
         why = d.why;
@@ -264,7 +279,12 @@ async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOpti
     } catch (e) {
       noSignal.push({ symbol: s, why: `ดึงข้อมูลไม่สำเร็จ: ${(e as Error).message}` });
     }
-  }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(6, universe.length) }, async () => {
+      while (next < universe.length) await checkOne(universe[next++]);
+    }),
+  );
   found.sort((a, b) => b.strength - a.strength);
 
   const view = await viewPortfolio(ctx, pid);
@@ -336,7 +356,9 @@ async function buildDayPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOpti
     usedThb: res.usedThb,
     budgetThb: res.budgetThb,
     cashThb,
-    skipped: [...res.skipped, ...noSignal].slice(0, 15),
+    skipped: [...res.skipped, ...noSignal],
+    checked: universe.length,
+    matched: found.length,
     commentary,
     byAi,
   };

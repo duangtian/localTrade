@@ -112,13 +112,23 @@ export default async function PlanPage() {
               )}
 
               {plan.skipped.length > 0 && (
-                <More summary={`ตัวที่ข้าม (${plan.skipped.length})`}>
-                  <ul className="space-y-1 text-[0.85rem]">
-                    {plan.skipped.map((s) => (
-                      <li key={s.symbol}>
-                        <b>{s.symbol.replace(".BK", "")}</b> <span className="muted">— {s.why}</span>
-                      </li>
-                    ))}
+                <More summary={`ตัวที่ข้าม (${plan.skipped.length}) และเหตุผล`}>
+                  <ul className="space-y-3 text-[0.9rem]">
+                    {Object.entries(
+                      plan.skipped.reduce<Record<string, string[]>>((g, x) => {
+                        (g[x.why] ??= []).push(x.symbol.replace(".BK", ""));
+                        return g;
+                      }, {}),
+                    )
+                      .sort((x, y) => y[1].length - x[1].length)
+                      .map(([why, syms]) => (
+                        <li key={why}>
+                          <p className="font-medium">
+                            {why} <span className="faint font-normal">· {syms.length} ตัว</span>
+                          </p>
+                          <p className="muted text-[0.85rem]">{syms.join(", ")}</p>
+                        </li>
+                      ))}
                   </ul>
                 </More>
               )}

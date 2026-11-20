@@ -100,9 +100,21 @@ export function PlanSummary({ plan, ai }: { plan: Plan; ai: boolean }) {
         <Tile label="เงินสดคงเหลือ" sub="เก็บไว้ใช้ภายหลัง">
           {fmtMoney(Math.max(0, plan.cashThb - plan.usedThb))}
         </Tile>
-        <Tile label="จำนวนหุ้น">{items.length} ตัว</Tile>
+        <Tile label="จำนวนหุ้น" sub={`ตั้งไว้สูงสุด ${plan.options.maxPositions} ตัว`}>
+          {items.length} ตัว
+        </Tile>
         <Tile label="กลุ่มอุตสาหกรรม">{sectors.size} กลุ่ม</Tile>
       </div>
+
+      {items.length < plan.options.maxPositions && (
+        <p className="note mt-2">
+          <b>ทำไมได้ {items.length} ตัว ไม่ครบ {plan.options.maxPositions}:</b>{" "}
+          {plan.checked !== undefined && plan.matched !== undefined
+            ? `ตรวจ ${plan.checked} ตัว เข้าเงื่อนไข${day ? "เดย์เทรดวันนี้" : "สถิติ"} ${plan.matched} ตัว`
+            : "มีหุ้นเข้าเงื่อนไขไม่ครบ"}
+          {plan.matched !== undefined && plan.matched > items.length ? ` และซื้อได้จริง ${items.length} ตัว (ติดงบต่อตัว, ซื้อทีละ 100 หุ้น หรือจำกัดต่อกลุ่ม)` : ""} ระบบไม่ฝืนซื้อตัวที่ไม่เข้าเงื่อนไขให้ครบจำนวน ดูเหตุผลของแต่ละตัวได้ที่ &quot;ตัวที่ข้าม&quot; ด้านล่าง
+        </p>
+      )}
 
       <Heading n={2}>ความเสี่ยงและผลตอบแทน (ประมาณ)</Heading>
       <div className="grid grid-cols-2 gap-2">
