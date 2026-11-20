@@ -73,12 +73,24 @@ export class YahooProvider implements PriceProvider {
   }
 
   async getFundamentals(symbol: string): Promise<Fundamentals> {
-    const s = await withTimeout(yf.quoteSummary(symbol, { modules: ["assetProfile", "summaryDetail", "price"] }));
+    const s = await withTimeout(yf.quoteSummary(symbol, { modules: ["assetProfile", "summaryDetail", "price", "defaultKeyStatistics"] }));
+    const sd = s.summaryDetail;
+    const ks = s.defaultKeyStatistics;
+    const ap = s.assetProfile;
     return {
-      pe: s.summaryDetail?.trailingPE ?? null,
-      dividendYield: s.summaryDetail?.dividendYield ?? null,
-      sector: s.assetProfile?.sector ?? null,
+      pe: sd?.trailingPE ?? null,
+      dividendYield: sd?.dividendYield ?? null,
+      sector: ap?.sector ?? null,
       name: s.price?.longName ?? s.price?.shortName ?? null,
+      industry: ap?.industry ?? null,
+      marketCap: sd?.marketCap ?? s.price?.marketCap ?? null,
+      eps: ks?.trailingEps ?? null,
+      priceToBook: ks?.priceToBook ?? null,
+      beta: sd?.beta ?? ks?.beta ?? null,
+      avgVolume: sd?.averageVolume ?? null,
+      employees: ap?.fullTimeEmployees ?? null,
+      website: ap?.website ?? null,
+      summary: ap?.longBusinessSummary ?? null,
     };
   }
 }

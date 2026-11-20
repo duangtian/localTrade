@@ -6,8 +6,10 @@ type Point = { time: string | number; open: number; high: number; low: number; c
 
 const RANGES = [
   { id: "1D", label: "1 วัน" },
-  { id: "1M", label: "1 เดือน" },
-  { id: "1Y", label: "1 ปี" },
+  { id: "1M", label: "1ด." },
+  { id: "3M", label: "3ด." },
+  { id: "1Y", label: "1ปี" },
+  { id: "5Y", label: "5ปี" },
 ];
 
 export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { symbol: string; defaultRange?: string; backtest?: boolean }) {
@@ -81,20 +83,37 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
 
   return (
     <div>
-      <div role="group" aria-label="ช่วงเวลากราฟ" className="mb-2 flex gap-1">
+      <div role="group" aria-label="ช่วงเวลากราฟ" className="mb-3 grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
         {RANGES.map((r) => (
           <button
             key={r.id}
             type="button"
             aria-pressed={range === r.id}
+            aria-label={{ "1D": "1 วัน", "1M": "1 เดือน", "3M": "3 เดือน", "1Y": "1 ปี", "5Y": "5 ปี" }[r.id]}
             disabled={backtest && r.id === "1D"}
             onClick={() => setRange(r.id)}
-            className={`btn flex-1 ${range === r.id ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+            className={`btn min-w-0 px-1 text-[0.85rem] ${range === r.id ? "bg-white text-blue-800 shadow dark:bg-slate-950 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}
           >
             {r.label}
           </button>
         ))}
       </div>
+      {data && data.length > 1 && (() => {
+        const first = data[0].close;
+        const last = data[data.length - 1].close;
+        const r = last / first - 1;
+        const d = r > 0.00004 ? "up" : r < -0.00004 ? "down" : "muted";
+        const names: Record<string, string> = { "1D": "ตั้งแต่เปิดตลาด", "1M": "ช่วง 1 เดือน", "3M": "ช่วง 3 เดือน", "1Y": "ช่วง 1 ปี", "5Y": "ช่วง 5 ปี" };
+        return (
+          <p className="mb-1 text-[0.85rem]">
+            <span className="muted">{names[range]}: </span>
+            <span className={`${d} font-semibold`}>
+              {d === "up" ? "▲ +" : d === "down" ? "▼ −" : "■ "}
+              {Math.abs(r * 100).toFixed(2)}%
+            </span>
+          </p>
+        );
+      })()}
       <div ref={el} className="h-[240px] w-full" role="img" aria-label={`กราฟราคา ${symbol} ช่วง ${range}`}>
         {!data && !error && <p className="muted pt-20 text-center">กำลังโหลดกราฟ…</p>}
         {error && <p className="muted pt-16 text-center">{error}</p>}

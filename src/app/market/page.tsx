@@ -21,8 +21,8 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
     }
   }
   const tabs = [
-    { id: "th", label: "🇹🇭 หุ้นไทย (SET50)" },
-    { id: "us", label: "🇺🇸 หุ้นสหรัฐฯ" },
+    { id: "th", label: "หุ้นไทย SET50" },
+    { id: "us", label: "หุ้นสหรัฐฯ" },
   ];
   return (
     <>
@@ -33,7 +33,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
             key={t.id}
             href={`/market?tab=${t.id}`}
             aria-current={tab === t.id ? "page" : undefined}
-            className={`btn ${tab === t.id ? "bg-white text-blue-800 shadow dark:bg-slate-950 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}
+            className={`btn rounded-xl ${tab === t.id ? "bg-white text-blue-800 shadow dark:bg-slate-950 dark:text-blue-300" : "text-slate-700 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-900"}`}
           >
             {t.label}
           </Link>

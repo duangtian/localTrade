@@ -5,7 +5,7 @@ import { kvGet, kvSet } from "@/lib/settings";
 
 /** ข้อมูลพื้นฐานปัจจุบัน (ใช้เฉพาะโหมดเวลาจริง) cache 1 วัน */
 export async function getFundamentals(db: DB, symbol: string): Promise<Fundamentals | null> {
-  const key = `fund:${symbol}`;
+  const key = `fund2:${symbol}`;
   const c = kvGet<{ at: number; data: Fundamentals } | null>(db, key, null);
   if (c && Date.now() - c.at < 86_400_000) return c.data;
   try {

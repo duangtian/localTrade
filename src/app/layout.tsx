@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans_Thai } from "next/font/google";
 import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
+import { IconLogo, IconSettings } from "@/components/icons";
 import { getDb } from "@/lib/db/client";
 import { getSettings } from "@/lib/settings";
 import "./globals.css";
@@ -32,15 +33,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-4 py-2">
-            <Link href="/" className="min-w-0 truncate font-bold text-blue-800 dark:text-blue-300">
-              📈 เทรดเพื่อการเรียนรู้
+            <Link href="/" className="flex min-h-[44px] min-w-0 items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+              <IconLogo className="h-8 w-8 shrink-0" />
+              <span className="truncate">เทรดเพื่อการเรียนรู้</span>
             </Link>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="chip whitespace-nowrap bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+              <span className={`chip whitespace-nowrap ${settings.mode === "live" ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" : "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"}`}>
+                <span aria-hidden className="mr-1">{settings.mode === "live" ? "●" : "⏪"}</span>
                 {settings.mode === "live" ? "เวลาจริง" : "ย้อนอดีต"}
               </span>
-              <Link href="/settings" className="btn px-2 text-2xl" aria-label="ตั้งค่า">
-                ⚙️
+              <Link href="/settings" className="btn px-2 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="ตั้งค่า">
+                <IconSettings />
               </Link>
             </div>
           </div>

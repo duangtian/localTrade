@@ -29,7 +29,8 @@ export async function GET(req: Request) {
         .map((b) => ({ time: Math.floor(new Date(b.date).getTime() / 1000), open: b.open, high: b.high, low: b.low, close: b.close }));
       return NextResponse.json({ points, intraday: true, day: lastDay });
     }
-    const from = DateTime.fromISO(today).minus(range === "1Y" ? { years: 1 } : { months: 1 }).toISODate()!;
+    const back = { "1M": { months: 1 }, "3M": { months: 3 }, "1Y": { years: 1 }, "5Y": { years: 5 } }[range] ?? { months: 1 };
+    const from = DateTime.fromISO(today).minus(back).toISODate()!;
     // ctx.provider ถูกจำกัดเวลาแล้วในโหมดย้อนอดีต: จะไม่มีแท่งหลังวันจำลอง
     const bars = await l.ctx.provider.getHistory(symbol, from, today, "1d");
     return NextResponse.json({

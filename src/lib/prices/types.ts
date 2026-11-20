@@ -45,4 +45,14 @@ export interface Fundamentals {
   dividendYield: number | null;
   sector: string | null;
   name: string | null;
+  industry?: string | null;
+  marketCap?: number | null;
+  eps?: number | null;
+  priceToBook?: number | null;
+  beta?: number | null;
+  avgVolume?: number | null;
+  employees?: number | null;
+  website?: string | null;
+  /** คำอธิบายธุรกิจ (ภาษาอังกฤษจาก Yahoo) */
+  summary?: string | null;
 }
