@@ -27,29 +27,7 @@ export default function SettingsPage() {
     <>
       <PageTitle>ตั้งค่า</PageTitle>
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:[&>section]:mt-0">
-        <section className="card">
-          <h2 className="text-lg font-bold">การแสดงผล</h2>
-          <form action={updateSettingsAction} className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              name="theme"
-              value="light"
-              className={`btn ${s.theme === "light" ? "bg-blue-700 text-white" : "bg-slate-100 dark:bg-slate-800"}`}
-              aria-pressed={s.theme === "light"}
-            >
-              ☀️ โหมดสว่าง
-            </button>
-            <button
-              name="theme"
-              value="dark"
-              className={`btn ${s.theme === "dark" ? "bg-blue-400 text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
-              aria-pressed={s.theme === "dark"}
-            >
-              🌙 โหมดมืด
-            </button>
-          </form>
-        </section>
-
-        <section className="card mt-3">
+                <section className="card mt-3">
           <h2 className="text-lg font-bold">Bot แบบ Claude</h2>
           {hasApiKey() ? (
             <>
@@ -62,7 +40,7 @@ export default function SettingsPage() {
                   {s.claudeEnabled ? "ปิด Claude (กลับไปใช้แบบกฎ)" : "เปิดใช้ Claude"}
                 </SubmitButton>
               </form>
-              <p className="mt-1 text-[0.9rem]">สถานะ: {s.claudeEnabled ? "✅ เปิดอยู่" : "⏸️ ปิดอยู่"}</p>
+              <p className="mt-1 text-[0.9rem]">สถานะ: {s.claudeEnabled ? "เปิดอยู่" : "ปิดอยู่"}</p>
             </>
           ) : (
             <p className="muted text-[0.9rem]">ยังไม่มี ANTHROPIC_API_KEY ในไฟล์ .env ตอนนี้ใช้อาจารย์แบบกฎ (ฟรี) ดูวิธีใส่ key ใน README.md</p>
@@ -74,8 +52,8 @@ export default function SettingsPage() {
             ค่าธรรมเนียม (แบบ Dime!) <Term k="commission" />
           </h2>
           {feesAreUnset(fees) ? (
-            <p className="mt-1 rounded-xl bg-amber-100 p-2 text-[0.9rem] text-amber-950 dark:bg-amber-900 dark:text-amber-50">
-              ⚠️ TODO: กรอกอัตราจริงจากแอป Dime! (ตอนนี้ทุกค่าเป็น 0)
+            <p className="note-warn mt-1">
+              TODO: กรอกอัตราจริงจากแอป Dime! (ตอนนี้ทุกค่าเป็น 0)
             </p>
           ) : (
             <p className="muted text-[0.9rem]">อัตราที่ใช้ เก็บเมื่อ {fmtDate(fees.asOf!)}</p>
@@ -107,14 +85,14 @@ export default function SettingsPage() {
         <section id="indexes" className="card mt-3 scroll-mt-20">
           <h2 className="text-lg font-bold">รายชื่อดัชนีหุ้นไทย</h2>
           <p className="muted text-[0.9rem]">
-            เว็บ SET ไม่เปิดให้แอปดึงรายชื่ออัตโนมัติ ให้เปิดหน้าดัชนีบนเว็บ SET แล้วคัดลอกชื่อย่อทั้งหมดมาวาง (คั่นด้วยเว้นวรรค จุลภาค หรือขึ้นบรรทัดใหม่ก็ได้) SET
-            ปรับรายชื่อทุก 6 เดือน (มกราคม / กรกฎาคม)
+            เว็บ SET ไม่เปิดให้แอปดึงรายชื่ออัตโนมัติ ให้เปิดหน้าดัชนีบนเว็บ SET แล้วคัดลอกชื่อย่อทั้งหมดมาวาง (คั่นด้วยเว้นวรรค จุลภาค หรือขึ้นบรรทัดใหม่ก็ได้) SET ปรับรายชื่อทุก 6 เดือน (มกราคม /
+            กรกฎาคม)
           </p>
           {(["set50", "set100"] as const).map((id) => {
             const o = getIndexOverride(db, id);
             const label = id === "set50" ? "SET50" : "SET100";
             return (
-              <div key={id} className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+              <div key={id} className="mt-4 border-t border-line pt-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-bold">{label}</h3>
                   <span className="muted text-[0.85rem]">
@@ -129,7 +107,7 @@ export default function SettingsPage() {
                   href={`https://www.set.or.th/th/market/index/${id}/overview`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[0.9rem] text-blue-700 underline dark:text-blue-300"
+                  className="text-[0.9rem] text-accent-text underline"
                 >
                   เปิดหน้า {label} บนเว็บ SET
                 </a>

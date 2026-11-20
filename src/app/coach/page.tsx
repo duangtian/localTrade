@@ -45,7 +45,7 @@ export default async function CoachPage() {
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
         <div className="min-w-0">
           <section className="card">
-            <h2 className="font-bold">🤖 Bot บุคลิก &quot;{longTermStrategy.name}&quot;</h2>
+            <h2 className="font-bold">Bot บุคลิก &quot;{longTermStrategy.name}&quot;</h2>
             <p className="muted text-[0.9rem]">{longTermStrategy.description}</p>
             <div className="mt-2 grid grid-cols-2 gap-3">
               <div>
@@ -107,8 +107,11 @@ export default async function CoachPage() {
           )}
         </div>
 
-        <div className="min-w-0 lg:sticky lg:top-[84px]">
-          <section className="card mt-5 lg:mt-0">
+        <div className="min-w-0 lg:sticky lg:top-6">
+          <Link href="/picks" className="btn-secondary mt-5 w-full lg:mt-0">
+            ดูหุ้นน่าสนใจที่ Bot และ AI คัดให้
+          </Link>
+          <section className="card mt-3">
             <h2 className="font-bold">คำถามสำเร็จรูป</h2>
             <div className="mt-2 flex flex-wrap gap-2">
               {CANNED_QA.map((qa, i) => (
@@ -124,7 +127,7 @@ export default async function CoachPage() {
                 {chat.map((m) => (
                   <li
                     key={m.id}
-                    className={`rounded-2xl px-3 py-2 ${m.kind === "chat_user" ? "ml-8 bg-blue-700 text-white dark:bg-blue-500 dark:text-slate-950" : "mr-8 bg-slate-100 dark:bg-slate-800"}`}
+                    className={`rounded-lg px-3 py-2 ${m.kind === "chat_user" ? "ml-8 bg-accent text-white" : "mr-8 bg-subtle"}`}
                   >
                     <span className="sr-only">{m.kind === "chat_user" ? "คุณ: " : "อาจารย์: "}</span>
                     {m.text}

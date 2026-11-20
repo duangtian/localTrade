@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MarketList } from "@/components/MarketList";
+import { IconChevronRight, IconSpark } from "@/components/icons";
 import { Disclaimer, EmptyState, PageTitle } from "@/components/ui";
 import { INDEXES, type IndexId } from "@/config/indices";
 import { getDb } from "@/lib/db/client";
@@ -42,13 +43,23 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <PageTitle sub={sub}>ตลาด</PageTitle>
-      <nav aria-label="เลือกตลาด" className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-slate-200 p-1 dark:bg-slate-800 lg:max-w-md">
+      <Link href="/picks" className="row-link mb-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-subtle text-accent-text">
+          <IconSpark />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">หุ้นน่าสนใจ</span>
+          <span className="muted block text-[0.85rem]">Bot คัดจากแนวโน้มกราฟและสถิติ พร้อมข่าวล่าสุด</span>
+        </span>
+        <IconChevronRight className="h-5 w-5 text-ink-muted" />
+      </Link>
+      <nav aria-label="เลือกตลาด" className="seg mb-3 grid-cols-2 lg:max-w-md">
         {tabs.map((t) => (
           <Link
             key={t.id}
             href={`/market?tab=${t.id}`}
             aria-current={tab === t.id ? "page" : undefined}
-            className={`btn rounded-xl ${tab === t.id ? "bg-white text-blue-800 shadow dark:bg-slate-950 dark:text-blue-300" : "text-slate-700 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-slate-900"}`}
+            className={tab === t.id ? "seg-item-active" : "seg-item"}
           >
             {t.label}
           </Link>
@@ -61,11 +72,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
             key={c.id}
             href={`/market?tab=${tab}&idx=${c.id}`}
             aria-current={idx === c.id ? "page" : undefined}
-            className={`inline-flex min-h-[44px] items-center rounded-xl px-4 font-bold ring-2 transition ${
-              idx === c.id
-                ? "bg-blue-700 text-white ring-blue-700 dark:bg-blue-400 dark:text-slate-950 dark:ring-blue-400"
-                : "bg-white text-slate-800 ring-slate-200 hover:ring-blue-400 dark:bg-slate-900 dark:text-slate-100 dark:ring-slate-700"
-            }`}
+            className={idx === c.id ? "fchip-active" : "fchip"}
           >
             {c.label}
           </Link>
@@ -77,7 +84,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         {info.def.editable && (
           <>
             {" · "}
-            <Link href="/settings#indexes" className="text-blue-700 underline dark:text-blue-300">
+            <Link href="/settings#indexes" className="text-accent-text underline">
               อัปเดตรายชื่อ
             </Link>
           </>

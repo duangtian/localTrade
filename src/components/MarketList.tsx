@@ -75,28 +75,22 @@ export function MarketList({
     .replace(/[^A-Z0-9.\-&]/g, "");
   const otherSymbol = raw && !filtered.some((f) => f.symbol.replace(".BK", "") === raw) ? (market === "TH" ? `${raw.replace(/\.BK$/, "")}.BK` : raw) : null;
 
-  const chip = (active: boolean) =>
-    `inline-flex min-h-[44px] shrink-0 items-center rounded-full px-4 text-[0.9rem] font-semibold transition ${
-      active
-        ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950"
-        : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700"
-    }`;
+  const chip = (active: boolean) => (active ? "fchip-active" : "fchip");
 
   return (
     <div>
       {hasQuotes && (
-        <div className="mb-3 grid grid-cols-3 gap-2 text-center" aria-label="ภาพรวมตลาดวันนี้">
-          <div className="rounded-xl bg-green-50 py-2 dark:bg-green-950">
-            <div className="up text-xl font-bold">▲ {breadth.up}</div>
-            <div className="muted text-[0.8rem]">ตัวที่ขึ้น</div>
-          </div>
-          <div className="rounded-xl bg-red-50 py-2 dark:bg-red-950">
-            <div className="down text-xl font-bold">▼ {breadth.down}</div>
-            <div className="muted text-[0.8rem]">ตัวที่ลง</div>
-          </div>
-          <div className="rounded-xl bg-slate-100 py-2 dark:bg-slate-800">
-            <div className="text-xl font-bold">■ {breadth.flat}</div>
-            <div className="muted text-[0.8rem]">ไม่เปลี่ยน</div>
+        <div className="mb-4" aria-label="ภาพรวมตลาดวันนี้">
+          <p className="text-[0.9rem]">
+            <span className="up font-semibold">ขึ้น {breadth.up}</span>
+            <span className="muted"> · </span>
+            <span className="down font-semibold">ลง {breadth.down}</span>
+            <span className="muted"> · ไม่เปลี่ยน {breadth.flat}</span>
+          </p>
+          <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden>
+            <span className="bg-emerald-400" style={{ width: `${(breadth.up / Math.max(1, breadth.up + breadth.down + breadth.flat)) * 100}%` }} />
+            <span className="bg-ink-muted/30" style={{ width: `${(breadth.flat / Math.max(1, breadth.up + breadth.down + breadth.flat)) * 100}%` }} />
+            <span className="bg-rose-400" style={{ width: `${(breadth.down / Math.max(1, breadth.up + breadth.down + breadth.flat)) * 100}%` }} />
           </div>
         </div>
       )}
@@ -105,12 +99,12 @@ export function MarketList({
         ค้นหาด้วยชื่อย่อหรือชื่อบริษัท
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45">
           <IconSearch />
         </span>
         <input
           id="search"
-          className="input min-h-[52px] rounded-2xl pl-10"
+          className="input min-h-[52px] rounded-lg pl-10"
           inputMode="search"
           autoComplete="off"
           placeholder={market === "TH" ? "ค้นหา เช่น PTT, ธนาคาร" : "ค้นหา เช่น AAPL, Apple"}
@@ -150,7 +144,7 @@ export function MarketList({
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
-              className="min-h-[44px] rounded-xl border border-slate-300 bg-white px-2 font-semibold dark:border-slate-600 dark:bg-slate-800"
+              className="select"
             >
               <option value="name">ชื่อ A–Z</option>
               <option value="gain">ขึ้นมากสุด</option>
@@ -160,16 +154,16 @@ export function MarketList({
         )}
       </div>
 
-      <ul className="mt-2 space-y-2 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:grid-cols-3">
-        {filtered.length === 0 && <li className="card muted md:col-span-full">ไม่พบหุ้นที่ค้นหา ลองพิมพ์ชื่อย่อให้ครบ แล้วกดปุ่ม &quot;เปิดหุ้น&quot; ด้านบน</li>}
+      <ul className="mt-2 card overflow-hidden p-0 lg:grid lg:grid-cols-2">
+        {filtered.length === 0 && <li className="muted p-4 lg:col-span-full">ไม่พบหุ้นที่ค้นหา ลองพิมพ์ชื่อย่อให้ครบ แล้วกดปุ่ม &quot;เปิดหุ้น&quot; ด้านบน</li>}
         {filtered.slice(0, limit).map((s) => {
           const qt = quotes[s.symbol];
           const chg = chgOf(s.symbol);
           return (
-            <li key={s.symbol}>
+            <li key={s.symbol} className="border-b border-line last:border-b-0 lg:odd:border-r lg:[&:nth-last-child(-n+2)]:border-b-0">
               <Link
                 href={`/stock/${encodeURIComponent(s.symbol)}`}
-                className="group flex min-h-[64px] items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 transition hover:ring-blue-400 active:scale-[0.99] dark:bg-slate-900 dark:ring-slate-700 dark:hover:ring-blue-500"
+                className="group flex min-h-[64px] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-white/[0.06]"
               >
                 <StockBadge symbol={s.symbol} sector={s.sector} />
                 <div className="min-w-0 flex-1">
@@ -186,7 +180,7 @@ export function MarketList({
                     <span className="muted text-[0.85rem]">ดูราคา</span>
                   )}
                 </div>
-                <span className="text-slate-400 transition group-hover:translate-x-0.5 dark:text-slate-500">
+                <span className="text-white/45">
                   <IconChevronRight />
                 </span>
               </Link>

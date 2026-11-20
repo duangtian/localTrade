@@ -5,8 +5,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { BACKTEST_PRESETS, STARTING_CASH_OPTIONS } from "@/config/app";
 import type { FeeConfig } from "@/config/fees";
-import { parseThaiSymbols } from "@/config/indices";
-import { setIndexOverride } from "@/lib/indices";
+import { indexDef, parseThaiSymbols, type IndexId } from "@/config/indices";
+import { findSeed } from "@/config/seeds";
+import { aiPicksSummary, aiStockAnalysis } from "@/lib/analysis/advice";
+import { getNews, type NewsItem } from "@/lib/analysis/news";
+import { analyzeSymbol, getCachedScan, runScan } from "@/lib/analysis/screen";
+import { buildPlan, clearPlan, executePlan, executeReview, type ExecResult, type PlanMarket } from "@/lib/analysis/planner";
+import type { ReviewAction } from "@/lib/analysis/allocate";
+import { getIndexStocks, setIndexOverride } from "@/lib/indices";
 import { askClaude, aiEnabled } from "@/lib/ai";
 import { buildAiContext, CANNED_QA, coachQuestion } from "@/lib/coach";
 import { getDb } from "@/lib/db/client";
@@ -218,4 +224,73 @@ export async function saveIndexAction(id: "set50" | "set100", formData: FormData
 export async function resetIndexAction(id: "set50" | "set100") {
   setIndexOverride(getDb(), id, null);
   revalidateAll();
+}
+
+// ---------- Bot คัดหุ้น / AI วิเคราะห์ ----------
+
+export async function runScanAction(universe: IndexId) {
+  const l = await loadGame({ sync: false });
+  if (!l.game || !indexDef(universe)) return;
+  const db = getDb();
+  await runScan(db, l.ctx, universe, getIndexStocks(db, universe).stocks);
+  revalidatePath("/picks");
+}
+
+export async function aiPicksAction(universe: IndexId) {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const db = getDb();
+  const scan = getCachedScan(db, l.ctx, universe);
+  if (!scan) return;
+  const top = scan.rows.slice(0, 5);
+  const news: Record<string, NewsItem[] | null> = {};
+  for (const r of top) news[r.symbol] = l.ctx.mode === "live" ? await getNews(db, r.symbol, 4) : null;
+  await aiPicksSummary(db, l.ctx, scan.key, scan.rows, news);
+  revalidatePath("/picks");
+}
+
+export async function aiStockAction(symbol: string) {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const db = getDb();
+  const a = await analyzeSymbol(l.ctx.provider, symbol, l.ctx.today).catch(() => null);
+  if (!a) return;
+  const news = l.ctx.mode === "live" ? await getNews(db, symbol) : null;
+  await aiStockAnalysis(db, l.ctx, symbol, findSeed(symbol)?.name ?? symbol, a, news);
+  revalidatePath(`/stock/${encodeURIComponent(symbol)}`);
+}
+
+// ---------- AI จัดพอร์ต (เสนอแผน → ผู้เล่นยืนยัน) ----------
+
+export async function buildPlanAction(formData: FormData) {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  const market = (["TH", "US", "BOTH"].includes(String(formData.get("market"))) ? formData.get("market") : "TH") as PlanMarket;
+  const maxPositions = Math.min(8, Math.max(2, Number(formData.get("n")) || 5));
+  const usePct = Math.min(0.95, Math.max(0.2, Number(formData.get("use")) || 0.7));
+  await buildPlan(getDb(), l.ctx, l.pid, { market, maxPositions, usePct });
+  revalidatePath("/plan");
+}
+
+export async function cancelPlanAction() {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return;
+  clearPlan(getDb(), l.ctx);
+  revalidatePath("/plan");
+}
+
+export async function executePlanAction(): Promise<ExecResult[]> {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return [{ symbol: "-", ok: false, message: "ยังไม่ได้เริ่มเกม" }];
+  const r = await executePlan(getDb(), l.ctx, l.pid);
+  revalidateAll();
+  return r;
+}
+
+export async function executeReviewAction(symbol: string, kind: ReviewAction["kind"]): Promise<ExecResult> {
+  const l = await loadGame({ sync: false });
+  if (!l.game) return { symbol, ok: false, message: "ยังไม่ได้เริ่มเกม" };
+  const r = await executeReview(getDb(), l.ctx, l.pid, symbol, kind);
+  revalidateAll();
+  return r;
 }

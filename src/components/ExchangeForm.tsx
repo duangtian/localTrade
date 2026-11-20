@@ -22,7 +22,7 @@ export function ExchangeForm({ fx, spread, cashThb, cashUsd }: { fx: number; spr
           type="button"
           aria-pressed={dir === "THB_TO_USD"}
           onClick={() => setDir("THB_TO_USD")}
-          className={`btn ${dir === "THB_TO_USD" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+          className={`btn ${dir === "THB_TO_USD" ? "bg-accent text-white" : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12]"}`}
         >
           บาท → USD
         </button>
@@ -30,7 +30,7 @@ export function ExchangeForm({ fx, spread, cashThb, cashUsd }: { fx: number; spr
           type="button"
           aria-pressed={dir === "USD_TO_THB"}
           onClick={() => setDir("USD_TO_THB")}
-          className={`btn ${dir === "USD_TO_THB" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+          className={`btn ${dir === "USD_TO_THB" ? "bg-accent text-white" : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12]"}`}
         >
           USD → บาท
         </button>

@@ -18,7 +18,7 @@ export function SetupForm({ mode, defaultCash, maxDate, isReset = false }: { mod
           {STARTING_CASH_OPTIONS.map((c) => (
             <label
               key={c}
-              className="btn-secondary cursor-pointer has-[:checked]:bg-blue-50 has-[:checked]:ring-2 has-[:checked]:ring-blue-700 dark:has-[:checked]:bg-blue-950"
+              className="btn-secondary cursor-pointer has-[:checked]:border-white has-[:checked]:bg-white has-[:checked]:text-neutral-900"
             >
               <input type="radio" name="cash" value={c} defaultChecked={c === defaultCash} className="sr-only" />
               {fmtMoney(c).replace(".00", "")}
@@ -32,7 +32,7 @@ export function SetupForm({ mode, defaultCash, maxDate, isReset = false }: { mod
           {BACKTEST_PRESETS.map((p, i) => (
             <label
               key={p.date}
-              className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-xl px-2 ring-1 ring-slate-300 has-[:checked]:ring-2 has-[:checked]:ring-blue-700 dark:ring-slate-600"
+              className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 border border-white/10 has-[:checked]:border-accent has-[:checked]:bg-accent/15"
             >
               <input type="radio" name="startDate" value={p.date} defaultChecked={i === 1} className="h-5 w-5" />
               <span>
@@ -40,7 +40,7 @@ export function SetupForm({ mode, defaultCash, maxDate, isReset = false }: { mod
               </span>
             </label>
           ))}
-          <label className="flex min-h-[44px] items-center gap-3 rounded-xl px-2 ring-1 ring-slate-300 dark:ring-slate-600">
+          <label className="flex min-h-[44px] items-center gap-3 rounded-lg px-2 border border-white/10">
             <input type="radio" name="startDate" value="" className="h-5 w-5" id="custom-radio" />
             <span>วันอื่น:</span>
             <input type="date" name="customDate" max={maxDate} min="2005-01-01" className="input max-w-[11rem]" aria-label="เลือกวันเริ่มต้นเอง" />

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { coachQuestionAction, placeOrderAction, previewOrderAction, type TradeDraft } from "@/app/actions";
+import type { Levels } from "@/lib/analysis/levels";
 import { fmtMoney, fmtPrice, fmtQty, fmtUpdated } from "@/lib/format";
 import { Term } from "./Term";
 
@@ -21,6 +22,8 @@ interface Props {
   band: { floor: number; ceiling: number } | null;
   feesUnset: boolean;
   mode: "live" | "backtest";
+  /** Bot แนะนำ stop-loss / เป้าหมาย (เฉพาะฝั่งซื้อ) */
+  levels?: Levels | null;
 }
 
 type Preview = { qty: number; price: number; gross: number; commission: number; total: number; currency: "THB" | "USD" };
@@ -40,6 +43,12 @@ export function TradeFlow(p: Props) {
   const [reason, setReason] = useState("");
   const [stopLoss, setStopLoss] = useState("");
   const [target, setTarget] = useState("");
+  /** จำนวนหุ้นโดยประมาณ (ใช้คำนวณขาดทุนถ้าโดน stop-loss) */
+  const estQty = () => {
+    const entry = type === "limit" ? Number(limit) || p.price : p.price;
+    if (p.market === "TH") return lots * 100;
+    return usMode === "amount" ? (Number(amount) || 0) / entry : Number(qty) || 0;
+  };
   const [answer, setAnswer] = useState("");
   const [question, setQuestion] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -109,7 +118,7 @@ export function TradeFlow(p: Props) {
           <li
             key={s}
             aria-current={i === step ? "step" : undefined}
-            className={`rounded-lg py-1 font-semibold ${i === step ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : i < step ? "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-100" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}
+            className={`rounded-lg py-1 font-semibold ${i === step ? "bg-accent text-white" : i < step ? "bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-100" : "bg-white/10 text-white/70"}`}
           >
             {i + 1}. {s}
           </li>
@@ -127,7 +136,7 @@ export function TradeFlow(p: Props) {
                   type="button"
                   aria-pressed={type === t}
                   onClick={() => setType(t)}
-                  className={`btn ${type === t ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+                  className={`btn ${type === t ? "bg-accent text-white" : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12]"}`}
                 >
                   {t === "market" ? "Market" : "Limit"}
                 </button>
@@ -137,7 +146,7 @@ export function TradeFlow(p: Props) {
               {type === "market" ? "ทำรายการทันทีที่ราคาตลาด" : p.mode === "backtest" ? "ตั้งราคาไว้ ระบบจะตรวจกับราคาสูง/ต่ำของวันถัด ๆ ไป" : "ตั้งราคาไว้ ทำรายการเมื่อราคาถึง"}{" "}
               <Term k={type === "market" ? "market" : "limit"} />
             </p>
-            {!p.tradableNow && <p className="muted mt-1 text-[0.85rem]">⏸️ {p.tradableReason}</p>}
+            {!p.tradableNow && <p className="muted mt-1 text-[0.85rem]">{p.tradableReason}</p>}
           </fieldset>
 
           {p.market === "TH" ? (
@@ -171,7 +180,7 @@ export function TradeFlow(p: Props) {
                   type="button"
                   aria-pressed={usMode === "amount"}
                   onClick={() => setUsMode("amount")}
-                  className={`btn ${usMode === "amount" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+                  className={`btn ${usMode === "amount" ? "bg-accent text-white" : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12]"}`}
                 >
                   เป็นจำนวนเงิน
                 </button>
@@ -179,7 +188,7 @@ export function TradeFlow(p: Props) {
                   type="button"
                   aria-pressed={usMode === "qty"}
                   onClick={() => setUsMode("qty")}
-                  className={`btn ${usMode === "qty" ? "bg-blue-700 text-white dark:bg-blue-400 dark:text-slate-950" : "bg-slate-100 dark:bg-slate-800"}`}
+                  className={`btn ${usMode === "qty" ? "bg-accent text-white" : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12]"}`}
                 >
                   เป็นจำนวนหุ้น
                 </button>
@@ -203,7 +212,7 @@ export function TradeFlow(p: Props) {
                 {isBuy ? `เงิน USD ที่ใช้ได้ ${fmtMoney(p.cashUsd, "USD")}` : `ขายได้สูงสุด ${fmtQty(p.heldQty)} หุ้น`}
                 {p.fx > 0 && ` · 1 USD ≈ ${fmtPrice(p.fx)} บาท`}
               </p>
-              {isBuy && p.cashUsd <= 0 && <p className="mt-1 font-semibold">💱 ต้องแลกเงินบาทเป็น USD ก่อน (ด้านล่างหน้านี้)</p>}
+              {isBuy && p.cashUsd <= 0 && <p className="mt-1 font-semibold">ต้องแลกเงินบาทเป็น USD ก่อน (ด้านล่างหน้านี้)</p>}
             </div>
           )}
 
@@ -260,6 +269,17 @@ export function TradeFlow(p: Props) {
               </div>
             </div>
           )}
+          {isBuy && (
+            <LevelsHint
+              p={p}
+              entry={type === "limit" ? Number(limit) || p.price : p.price}
+              estQty={estQty()}
+              stopLoss={stopLoss}
+              target={target}
+              setStopLoss={setStopLoss}
+              setTarget={setTarget}
+            />
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className="btn-secondary" onClick={() => setStep(0)}>
               ย้อนกลับ
@@ -274,8 +294,8 @@ export function TradeFlow(p: Props) {
       {step === 2 && preview && (
         <div className="space-y-4">
           {question && (
-            <div className="rounded-xl bg-blue-50 p-3 ring-1 ring-blue-200 dark:bg-blue-950 dark:ring-blue-800">
-              <p className="font-semibold">🧑‍🏫 อาจารย์ถาม: {question}</p>
+            <div className="inset border-l-2 border-l-accent">
+              <p className="font-semibold">อาจารย์ถาม: {question}</p>
               <label className="sr-only" htmlFor="answer">
                 คำตอบของคุณ
               </label>
@@ -296,14 +316,14 @@ export function TradeFlow(p: Props) {
             <Row label="ค่าคอม + VAT" term>
               {fmtMoney(preview.commission, cur)}
             </Row>
-            <div className="border-t border-slate-200 pt-2 dark:border-slate-700">
+            <div className="border-t border-line pt-2">
               <Row label={isBuy ? "เงินที่ใช้รวม" : "เงินที่ได้รับ"} big>
                 {fmtMoney(preview.total, cur)}
               </Row>
               {cur === "USD" && p.fx > 0 && <p className="muted text-right text-[0.85rem]">≈ {fmtMoney(preview.total * p.fx)}</p>}
             </div>
           </dl>
-          {p.feesUnset && <p className="text-[0.85rem] text-amber-800 dark:text-amber-200">⚠️ ยังไม่ได้กรอกอัตราค่าคอมจริงของ Dime! (แก้ได้ในหน้าตั้งค่า)</p>}
+          {p.feesUnset && <p className="note-warn">ยังไม่ได้กรอกอัตราค่าคอมจริงของ Dime! (แก้ได้ในหน้าตั้งค่า)</p>}
           <p className="muted text-[0.85rem]">เหตุผล: “{reason.trim()}”</p>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className="btn-secondary" onClick={() => setStep(1)}>
@@ -319,7 +339,7 @@ export function TradeFlow(p: Props) {
       {step === 3 && result && (
         <div className="space-y-3" role="status">
           <p className="text-lg font-bold">
-            {result.status === "filled" ? "✅ " : "⏳ "}
+            
             {result.message}
           </p>
           <div className="grid grid-cols-2 gap-2">
@@ -335,7 +355,7 @@ export function TradeFlow(p: Props) {
 
       {error && (
         <p role="alert" className="down mt-3 font-semibold">
-          ⚠️ {error}
+          {error}
         </p>
       )}
     </section>
@@ -349,6 +369,105 @@ function Row({ label, children, big, term }: { label: string; children: React.Re
         {label} {term && <Term k="commission" />}
       </dt>
       <dd className={big ? "text-2xl font-bold" : "font-semibold"}>{children}</dd>
+    </div>
+  );
+}
+
+function LevelsHint({
+  p,
+  entry,
+  estQty,
+  stopLoss,
+  target,
+  setStopLoss,
+  setTarget,
+}: {
+  p: Props;
+  entry: number;
+  estQty: number;
+  stopLoss: string;
+  target: string;
+  setStopLoss: (v: string) => void;
+  setTarget: (v: string) => void;
+}) {
+  const cur = p.market === "TH" ? "THB" : "USD";
+  const lv = p.levels;
+  const sl = Number(stopLoss);
+  const tg = Number(target);
+  const pct = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(1)}%`;
+  const warnings: string[] = [];
+  if (stopLoss && sl >= entry) warnings.push("Stop-loss ต้องต่ำกว่าราคาซื้อ");
+  if (target && tg <= entry) warnings.push("เป้าหมายต้องสูงกว่าราคาซื้อ");
+  const risk = stopLoss && sl > 0 && sl < entry && estQty > 0 ? (entry - sl) * estQty : null;
+  const reward = target && tg > entry && estQty > 0 ? (tg - entry) * estQty : null;
+  const toThb = (x: number) => (p.market === "US" && p.fx ? ` (≈ ${fmtMoney(x * p.fx)})` : "");
+
+  return (
+    <div className="space-y-2">
+      {lv && (
+        <div className="inset text-[0.9rem]">
+          <p className="font-semibold">Bot แนะนำ (จากความผันผวนของหุ้นนี้)</p>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            <div>
+              <div className="muted text-[0.8rem]">Stop-loss</div>
+              <div className="down font-bold">
+                {fmtMoney(lv.stop, cur)} <span className="text-[0.8rem]">({pct(lv.stop / lv.entry - 1)})</span>
+              </div>
+            </div>
+            <div>
+              <div className="muted text-[0.8rem]">เป้าหมาย</div>
+              <div className="up font-bold">
+                {fmtMoney(lv.target, cur)} <span className="text-[0.8rem]">({pct(lv.target / lv.entry - 1)})</span>
+              </div>
+            </div>
+          </div>
+          <details className="mt-1">
+            <summary className="cursor-pointer text-[0.85rem] font-semibold text-accent-text">ทำไมเป็นราคานี้</summary>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-[0.85rem]">
+              <li>
+                <b>Stop-loss:</b> {lv.stopWhy}
+              </li>
+              <li>
+                <b>เป้าหมาย:</b> {lv.targetWhy}
+              </li>
+              <li>คำนวณจากราคาปัจจุบัน {fmtMoney(lv.entry, cur)} ถ้าตั้ง Limit ที่ราคาอื่น ควรปรับตาม</li>
+            </ul>
+          </details>
+          <button
+            type="button"
+            className="btn-secondary mt-2 w-full"
+            onClick={() => {
+              setStopLoss(String(lv.stop));
+              setTarget(String(lv.target));
+            }}
+          >
+            ใช้ค่าที่ Bot แนะนำ
+          </button>
+        </div>
+      )}
+      {warnings.map((w) => (
+        <p key={w} role="alert" className="down text-[0.85rem] font-semibold">
+          {w}
+        </p>
+      ))}
+      {(risk !== null || reward !== null) && (
+        <p className="text-[0.85rem]">
+          {risk !== null && (
+            <>
+              ถ้าราคาลงถึง stop-loss จะขาดทุนประมาณ <b className="down">{fmtMoney(risk, cur)}</b>
+              {toThb(risk)}
+            </>
+          )}
+          {risk !== null && reward !== null && " · "}
+          {reward !== null && (
+            <>
+              ถ้าถึงเป้าจะได้ประมาณ <b className="up">{fmtMoney(reward, cur)}</b>
+              {toThb(reward)}
+            </>
+          )}
+          {risk !== null && reward !== null && risk > 0 && <span className="muted"> (กำไร:ขาดทุน = {(reward / risk).toFixed(1)}:1)</span>}
+        </p>
+      )}
     </div>
   );
 }

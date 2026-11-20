@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconCoach, IconHome, IconMarket, IconTarget, IconWallet } from "./icons";
+import { IconCoach, IconHome, IconMarket, IconSettings, IconTarget, IconWallet } from "./icons";
 
 const ITEMS = [
   { href: "/", label: "หน้าแรก", Icon: IconHome },
@@ -11,39 +11,60 @@ const ITEMS = [
   { href: "/missions", label: "ภารกิจ", Icon: IconTarget },
 ];
 
+function isActive(path: string, href: string) {
+  if (href === "/") return path === "/";
+  if (href === "/market") return ["/market", "/stock", "/trade", "/picks"].some((p) => path.startsWith(p));
+  if (href === "/portfolio") return path.startsWith("/portfolio") || path.startsWith("/plan");
+  return path.startsWith(href);
+}
+
+/** มือถือ: แคปซูลกระจกลอยด้านล่าง · จอใหญ่: แคปซูลแนวตั้งแบบไอคอน พร้อม tooltip */
 export function BottomNav() {
   const path = usePathname();
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 lg:sticky lg:top-[60px] lg:h-[calc(100vh-60px)] lg:w-60 lg:shrink-0 lg:border-r lg:border-t-0 lg:bg-transparent lg:pb-0 lg:backdrop-blur-none"
+      className="glass-bar fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 rounded-full px-2 py-1.5 lg:sticky lg:inset-auto lg:top-6 lg:flex lg:w-[76px] lg:shrink-0 lg:flex-col lg:items-center lg:gap-2 lg:px-0 lg:py-4"
     >
-      <ul className="mx-auto grid max-w-2xl grid-cols-5 lg:flex lg:flex-col lg:gap-1 lg:px-3 lg:py-6">
+      <ul className="grid grid-cols-5 lg:flex lg:flex-col lg:gap-2">
         {ITEMS.map((it) => {
-          const active =
-            it.href === "/" ? path === "/" : path.startsWith(it.href) || (it.href === "/market" && (path.startsWith("/stock") || path.startsWith("/trade")));
+          const active = isActive(path, it.href);
           return (
-            <li key={it.href}>
+            <li key={it.href} className="group relative flex justify-center">
               <Link
                 href={it.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[60px] flex-col items-center justify-center gap-0.5 py-1 text-[0.8rem] font-semibold lg:min-h-[48px] lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-2 lg:text-base ${
-                  active
-                    ? "text-blue-700 dark:text-blue-300 lg:bg-blue-50 dark:lg:bg-blue-950"
-                    : "text-slate-600 hover:lg:bg-slate-100 dark:text-slate-300 dark:hover:lg:bg-slate-900"
+                aria-label={it.label}
+                className={`flex min-h-[52px] w-full flex-col items-center justify-center gap-0.5 rounded-full text-[0.7rem] font-medium transition-colors lg:h-12 lg:min-h-0 lg:w-12 ${
+                  active ? "bg-white/[0.14] text-white" : "text-white/60 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
-                <span
-                  className={`flex h-8 w-14 items-center justify-center rounded-full transition lg:w-8 ${active ? "bg-blue-100 dark:bg-blue-950 lg:bg-transparent dark:lg:bg-transparent" : ""}`}
-                >
-                  <it.Icon className="h-6 w-6" />
-                </span>
-                {it.label}
+                <it.Icon className="h-[22px] w-[22px]" />
+                <span className="lg:sr-only">{it.label}</span>
               </Link>
+              <span
+                role="tooltip"
+                className="glass-bar pointer-events-none absolute left-full top-1/2 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[0.85rem] opacity-0 transition-opacity group-hover:opacity-100 lg:block"
+              >
+                {it.label}
+              </span>
             </li>
           );
         })}
       </ul>
+      <div className="group relative mt-4 hidden border-t border-white/10 pt-4 lg:flex lg:justify-center">
+        <Link
+          href="/settings"
+          aria-label="ตั้งค่า"
+          aria-current={path.startsWith("/settings") ? "page" : undefined}
+          className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${path.startsWith("/settings") ? "bg-white/[0.14] text-white" : "text-white/60 hover:bg-white/[0.08] hover:text-white"}`}
+        >
+          <IconSettings className="h-[22px] w-[22px]" />
+        </Link>
+        <span role="tooltip" className="glass-bar pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1 text-[0.85rem] opacity-0 transition-opacity group-hover:opacity-100">
+          ตั้งค่า
+        </span>
+      </div>
     </nav>
   );
 }

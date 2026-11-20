@@ -15,7 +15,7 @@ export function Term({ k }: { k: GlossaryKey }) {
         aria-expanded={open}
         aria-controls={id}
         aria-label={`ความหมายของ ${g.term}`}
-        className="inline-flex h-[28px] min-w-[28px] items-center justify-center rounded-full bg-slate-200 align-middle text-[0.75rem] font-bold text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100 before:absolute relative before:-inset-2 before:content-['']"
+        className="inline-flex h-[28px] min-w-[28px] items-center justify-center rounded-full bg-subtle align-middle text-[0.75rem] font-bold text-ink hover:bg-slate-300 before:absolute relative before:-inset-2 before:content-['']"
       >
         ?
       </button>
@@ -23,7 +23,7 @@ export function Term({ k }: { k: GlossaryKey }) {
         <span
           id={id}
           role="note"
-          className="mt-1 block rounded-lg bg-blue-50 px-2 py-1 text-[0.85rem] font-normal text-blue-950 dark:bg-blue-950 dark:text-blue-100"
+          className="mt-1 block rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-[0.85rem] font-normal text-white/85"
         >
           <b>{g.term}:</b> {g.def}
         </span>

@@ -4,6 +4,7 @@ import { CONCENTRATION_WARN } from "@/config/app";
 import { sectorOf } from "@/config/seeds";
 import type { OrderRow } from "@/lib/game/core";
 import type { Valuation } from "@/lib/engine/portfolio";
+import { AI_PLAN_PREFIX } from "@/lib/analysis/allocate";
 
 export interface MissionInput {
   today: string;
@@ -25,7 +26,9 @@ export interface Mission {
 
 const day = (s: string) => s.slice(0, 10);
 
-export function evaluateMissions(m: MissionInput): Mission[] {
+export function evaluateMissions(input: MissionInput): Mission[] {
+  // คำสั่งที่มาจาก "AI จัดพอร์ต" ไม่นับในภารกิจ เพราะภารกิจวัดวินัยของผู้เล่นเอง
+  const m = { ...input, orders: input.orders.filter((o) => !o.reason.startsWith(AI_PLAN_PREFIX)) };
   const filled = m.orders.filter((o) => o.status === "filled").sort((a, b) => a.id - b.id);
   const buys = filled.filter((o) => o.side === "buy");
   const sells = filled.filter((o) => o.side === "sell");

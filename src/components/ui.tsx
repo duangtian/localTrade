@@ -3,11 +3,7 @@ import { Term } from "./Term";
 import type { GlossaryKey } from "@/lib/glossary";
 
 export function Disclaimer() {
-  return (
-    <p className="my-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.85rem] text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950 dark:text-amber-100 dark:ring-amber-800">
-      ⚠️ เกมจำลองเพื่อการเรียนรู้ ไม่ใช่คำแนะนำการลงทุน
-    </p>
-  );
+  return <p className="muted mt-6 border-t border-line pt-3 text-[0.8rem]">เกมจำลองเพื่อการเรียนรู้ ใช้เงินสมมติ ไม่ใช่คำแนะนำการลงทุน</p>;
 }
 
 /** แสดงการเปลี่ยนแปลง: สี + ลูกศร + เครื่องหมาย (ไม่สื่อด้วยสีอย่างเดียว) */
@@ -50,7 +46,7 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
 export function PageTitle({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div className="mb-3">
-      <h1 className="text-2xl font-bold">{children}</h1>
+      <h1 className="text-[1.5rem] font-semibold tracking-tight">{children}</h1>
       {sub && <p className="muted text-[0.9rem]">{sub}</p>}
     </div>
   );
@@ -59,8 +55,8 @@ export function PageTitle({ children, sub }: { children: React.ReactNode; sub?: 
 export function More({ summary = "ดูเพิ่ม", children }: { summary?: string; children: React.ReactNode }) {
   return (
     <details className="group mt-3">
-      <summary className="btn-secondary w-full cursor-pointer list-none">
-        {summary}{" "}
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between border-t border-line pt-2 text-[0.9rem] font-medium text-white/80 hover:text-white">
+        {summary}
         <span className="transition group-open:rotate-180" aria-hidden>
           ▾
         </span>

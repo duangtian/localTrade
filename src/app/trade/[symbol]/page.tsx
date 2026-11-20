@@ -8,6 +8,8 @@ import { loadState, reservedFor, tradable } from "@/lib/game/core";
 import { marketOf } from "@/lib/rules/hours";
 import { priceBand, tickSizeFor } from "@/lib/rules/tick";
 import { loadGame } from "@/lib/server";
+import { DateTime } from "luxon";
+import { suggestLevels } from "@/lib/analysis/levels";
 
 export default async function TradePage({ params, searchParams }: { params: Promise<{ symbol: string }>; searchParams: Promise<{ side?: string }> }) {
   const symbol = decodeURIComponent((await params).symbol).toUpperCase();
@@ -33,6 +35,12 @@ export default async function TradePage({ params, searchParams }: { params: Prom
   const pos = state.positions.find((p) => p.symbol === symbol);
   const t = await tradable(l.ctx, symbol);
   const bandRef = l.ctx.mode === "live" && t.ok ? quote.prevClose : quote.price;
+  // Bot แนะนำ stop-loss / เป้าหมาย จากความผันผวน (แท่งราคาถึงวันของเกมเท่านั้น)
+  const bars = await l.ctx.provider
+    .getHistory(symbol, DateTime.fromISO(l.ctx.today).minus({ days: 200 }).toISODate()!, l.ctx.today, "1d")
+    .then((b) => b.filter((x) => x.date.slice(0, 10) <= l.ctx.today))
+    .catch(() => []);
+  const levels = side === "buy" ? suggestLevels(bars, quote.price, market) : null;
   const fx = market === "US" ? ((await l.ctx.provider.getFxRate().catch(() => null))?.rate ?? 0) : 1;
 
   return (
@@ -56,10 +64,11 @@ export default async function TradePage({ params, searchParams }: { params: Prom
         band={market === "TH" && bandRef ? priceBand(bandRef) : null}
         feesUnset={feesAreUnset(l.ctx.fees)}
         mode={l.ctx.mode}
+        levels={levels}
       />
       {market === "US" && side === "buy" && (
         <details className="card mt-3">
-          <summary className="min-h-[44px] cursor-pointer font-semibold">💱 แลกเงินบาทเป็น USD</summary>
+          <summary className="min-h-[44px] cursor-pointer font-semibold">แลกเงินบาทเป็น USD</summary>
           <div className="mt-2">
             <ExchangeForm fx={fx} spread={l.ctx.fees.fx.spreadRate} cashThb={state.cashThb - reserved.thb} cashUsd={state.cashUsd - reserved.usd} />
           </div>

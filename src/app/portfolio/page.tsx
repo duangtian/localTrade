@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CountUp } from "@/components/CountUp";
 import { DateTime } from "luxon";
 import { cancelOrderAction } from "@/app/actions";
 import { ExchangeForm } from "@/components/ExchangeForm";
@@ -70,12 +71,22 @@ export default async function PortfolioPage() {
   return (
     <>
       <PageTitle sub={fmtUpdated(r.player.updatedAt ?? (l.ctx.mode === "backtest" ? l.ctx.today : null))}>พอร์ต</PageTitle>
+      <Link href="/plan" className="row-link mb-4">
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">AI จัดพอร์ต</span>
+          <span className="muted block text-[0.85rem]">ให้ AI เสนอแผนกระจายเงินสด และตรวจหุ้นที่ถืออยู่ คุณกดยืนยันเอง</span>
+        </span>
+        <span aria-hidden className="text-white/45">›</span>
+      </Link>
+
 
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
         <div className="min-w-0">
           <section className="card">
             <div className="muted">มูลค่าพอร์ตรวม</div>
-            <p className="big-num">{fmtMoney(v.totalThb)}</p>
+            <p className="big-num">
+          <CountUp value={v.totalThb} />
+        </p>
             <div className="mt-2 grid grid-cols-2 gap-3">
               <Stat label="กำไรที่ยังไม่เกิด" term="unrealized">
                 <Change value={unrealized} />
@@ -87,8 +98,8 @@ export default async function PortfolioPage() {
           </section>
 
           {concentrated.map((h) => (
-            <p key={h.symbol} role="alert" className="mt-3 rounded-xl bg-amber-100 p-3 font-semibold text-amber-950 dark:bg-amber-900 dark:text-amber-50">
-              ⚠️ {h.symbol.replace(".BK", "")} เป็น {(h.weight * 100).toFixed(0)}% ของพอร์ต (เกิน 40%) ความเสี่ยงกระจุกตัว <Term k="diversification" />
+            <p key={h.symbol} role="alert" className="note-warn mt-3 text-[0.9rem] font-semibold">
+              {h.symbol.replace(".BK", "")} เป็น {(h.weight * 100).toFixed(0)}% ของพอร์ต (เกิน 40%) ความเสี่ยงกระจุกตัว <Term k="diversification" />
             </p>
           ))}
 
@@ -127,7 +138,7 @@ export default async function PortfolioPage() {
                       <Stat label="ราคาล่าสุด">{fmtMoney(h.price, cur)}</Stat>
                     </dl>
                     {h.market === "US" && (
-                      <div className="mt-2 rounded-xl bg-slate-100 p-2 text-[0.9rem] dark:bg-slate-800">
+                      <div className="mt-2 rounded-lg bg-subtle p-2 text-[0.9rem]">
                         <div className="flex justify-between">
                           <span>
                             จากราคาหุ้น <Term k="priceEffect" />
@@ -142,8 +153,8 @@ export default async function PortfolioPage() {
                         </div>
                       </div>
                     )}
-                    {hitStop && <p className="down mt-2 font-semibold">🔔 ราคาต่ำกว่า stop-loss ที่ตั้งไว้ ({lastBuy!.stopLoss}) ทบทวนแผนของคุณ</p>}
-                    {hitTarget && <p className="up mt-2 font-semibold">🔔 ราคาถึงเป้าหมายที่ตั้งไว้ ({lastBuy!.targetPrice}) แล้ว</p>}
+                    {hitStop && <p className="down mt-2 font-semibold">ราคาต่ำกว่า stop-loss ที่ตั้งไว้ ({lastBuy!.stopLoss}) ทบทวนแผนของคุณ</p>}
+                    {hitTarget && <p className="up mt-2 font-semibold">ราคาถึงเป้าหมายที่ตั้งไว้ ({lastBuy!.targetPrice}) แล้ว</p>}
                   </li>
                 );
               })}
@@ -201,9 +212,9 @@ export default async function PortfolioPage() {
                         <span>{name}</span>
                         <span className="font-semibold">{(w * 100).toFixed(1)}%</span>
                       </div>
-                      <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden>
+                      <div className="h-3 rounded-full bg-subtle" aria-hidden>
                         <div
-                          className={`h-3 rounded-full ${name === "เงินสด" ? "bg-slate-500" : "bg-blue-700 dark:bg-blue-400"}`}
+                          className={`h-3 rounded-full ${name === "เงินสด" ? "bg-white/30" : "bg-accent"}`}
                           style={{ width: `${Math.max(1, w * 100)}%` }}
                         />
                       </div>
@@ -226,7 +237,7 @@ export default async function PortfolioPage() {
                 จองไว้ในคำสั่งค้าง: {fmtMoney(reserved.thb)} / {fmtMoney(reserved.usd, "USD")}
               </p>
             )}
-            <More summary="💱 แลกเงิน">
+            <More summary="แลกเงิน">
               <ExchangeForm
                 fx={r.player.fx || (await l.ctx.provider.getFxRate().catch(() => ({ rate: 0 }))).rate}
                 spread={l.ctx.fees.fx.spreadRate}
@@ -264,7 +275,7 @@ export default async function PortfolioPage() {
                       กำไรที่เกิดขึ้นแล้ว: <Change value={o.realizedPnlThb} />
                     </p>
                   )}
-                  <p className="mt-1">📝 “{o.reason}”</p>
+                  <p className="mt-1">“{o.reason}”</p>
                   {(o.stopLoss || o.targetPrice) && (
                     <p className="muted text-[0.85rem]">
                       {o.stopLoss ? `stop-loss ${o.stopLoss}` : ""} {o.targetPrice ? `· เป้าหมาย ${o.targetPrice}` : ""}
@@ -272,7 +283,7 @@ export default async function PortfolioPage() {
                   )}
                   {o.coachQuestion && (
                     <p className="muted text-[0.85rem]">
-                      🧑‍🏫 {o.coachQuestion}
+                      อาจารย์ถาม: {o.coachQuestion}
                       {o.coachAnswer ? ` → “${o.coachAnswer}”` : ""}
                     </p>
                   )}

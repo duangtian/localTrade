@@ -16,6 +16,13 @@ import type { Bar } from "@/lib/prices/types";
 import { marketOf } from "@/lib/rules/hours";
 import { priceBand } from "@/lib/rules/tick";
 import { loadGame } from "@/lib/server";
+import { aiStockAction } from "@/app/actions";
+import { ScoreBadge, ToneDot } from "@/components/ScoreBadge";
+import { SubmitButton } from "@/components/SubmitButton";
+import { aiEnabled, aiUsage } from "@/lib/ai";
+import { getAiStock, ruleStockSummary } from "@/lib/analysis/advice";
+import { analyze } from "@/lib/analysis/indicators";
+import { getNews, newsBalance } from "@/lib/analysis/news";
 
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 
@@ -48,12 +55,12 @@ function RangeBar({ label, term, low, high, value, cur }: { label: string; term:
         <span className="text-[0.85rem] font-semibold">{where}</span>
       </div>
       <div
-        className="relative mt-3 h-2 rounded-full bg-gradient-to-r from-red-300 via-slate-300 to-green-300 dark:from-red-800 dark:via-slate-600 dark:to-green-800"
+        className="relative mt-3 h-1.5 rounded-full bg-subtle"
         role="img"
         aria-label={`${label} ${fmtPrice(low)} ถึง ${fmtPrice(high)} ราคาปัจจุบัน ${fmtPrice(value)}`}
       >
         <span
-          className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-blue-700 shadow dark:border-slate-900 dark:bg-blue-400"
+          className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-blue-700 dark:border-slate-900 dark:bg-blue-400"
           style={{ left: `${pos}%` }}
         />
       </div>
@@ -109,7 +116,7 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
   // ประวัติราคา 1 ปี (โหมดย้อนอดีตถูกตัดถึงวันจำลองโดย provider)
   const yearAgo = DateTime.fromISO(today).minus({ years: 1 });
   const [bars, fund, fx, t] = await Promise.all([
-    l.ctx.provider.getHistory(symbol, yearAgo.minus({ days: 7 }).toISODate()!, today, "1d").catch(() => [] as Bar[]),
+    l.ctx.provider.getHistory(symbol, DateTime.fromISO(today).minus({ days: 400 }).toISODate()!, today, "1d").catch(() => [] as Bar[]),
     l.ctx.mode === "live" ? getFundamentals(getDb(), symbol) : Promise.resolve(null),
     market === "US"
       ? l.ctx.provider
@@ -147,6 +154,13 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
     return { label, r: base ? quote.price / base - 1 : null };
   });
 
+  // สัญญาณจาก Bot (ใช้แท่งราคาถึงวันของเกมเท่านั้น) + ข่าว (เฉพาะโหมดเวลาจริง)
+  const analysis = analyze(bars.filter((b) => b.date.slice(0, 10) <= today));
+  const news = l.ctx.mode === "live" ? await getNews(getDb(), symbol) : null;
+  const aiText = getAiStock(getDb(), l.ctx, symbol);
+  const ai = aiEnabled(getDb());
+  const usage = aiUsage(getDb());
+
   const posValue = pos ? pos.qty * quote.price : 0;
   const posPnl = pos ? posValue - pos.qty * pos.avgCost : 0;
 
@@ -157,7 +171,7 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
       </Link>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-6">
-        <div className="min-w-0 lg:sticky lg:top-[84px]">
+        <div className="min-w-0 lg:sticky lg:top-6">
           {/* หัวข้อ + ราคา */}
           <section className="card">
             <div className="flex items-center gap-3">
@@ -168,9 +182,9 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
               </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-1">
-              <span className="chip bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100">{sector}</span>
-              <span className="chip bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100">{market === "TH" ? "SET ไทย" : "ตลาดสหรัฐฯ"}</span>
-              {pos && <span className="chip bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200">คุณถืออยู่</span>}
+              <span className="chip bg-subtle text-ink">{sector}</span>
+              <span className="chip bg-subtle text-ink">{market === "TH" ? "SET ไทย" : "ตลาดสหรัฐฯ"}</span>
+              {pos && <span className="chip bg-accent/20 text-white">คุณถืออยู่</span>}
             </div>
             <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
               <p className="big-num">{fmtMoney(quote.price, cur)}</p>
@@ -194,9 +208,9 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
         <div className="min-w-0 lg:[&>section:first-child]:mt-0">
           {/* สถานะของฉัน */}
           {pos && (
-            <section className="card mt-3 ring-2 ring-blue-200 dark:ring-blue-900">
+            <section className="card mt-3 border-accent/50">
               <h2 className="font-bold">หุ้นนี้ในพอร์ตของคุณ</h2>
-              <dl className="mt-1 divide-y divide-slate-100 dark:divide-slate-800">
+              <dl className="mt-1 divide-y divide-line">
                 <Row label="จำนวน">{fmtQty(pos.qty)} หุ้น</Row>
                 <Row label="ต้นทุนเฉลี่ย" term="avgCost">
                   {fmtMoney(pos.avgCost, cur)}
@@ -211,6 +225,81 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
               </dl>
             </section>
           )}
+
+          {/* Bot + ข่าว + AI */}
+          <section className="card mt-3">
+            <h2 className="font-semibold">Bot และ AI วิเคราะห์</h2>
+            {analysis ? (
+              <>
+                <div className="mt-2 flex items-center gap-3">
+                  <ScoreBadge score={analysis.score} size="lg" />
+                  <div>
+                    <p className="text-lg font-bold">{analysis.label}</p>
+                    <p className="muted text-[0.85rem]">
+                      แนวโน้ม{analysis.trend === "up" ? "ขาขึ้น" : analysis.trend === "down" ? "ขาลง" : "ไม่ชัด"} · ข้อมูลถึง {fmtDate(analysis.asOf)}
+                    </p>
+                  </div>
+                </div>
+                <ul className="mt-3 space-y-1 text-[0.9rem]">
+                  {analysis.signals.map((sg) => (
+                    <li key={sg.text} className="flex gap-2">
+                      <ToneDot tone={sg.tone} />
+                      <span>{sg.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="inset mt-3 text-[0.95rem]">
+                  <p className="muted mb-1 text-[0.8rem] font-semibold">{aiText ? "AI (Claude) วิเคราะห์" : "Bot สรุป"}</p>
+                  <p className="whitespace-pre-line">{aiText ?? ruleStockSummary(symbol, analysis, news)}</p>
+                </div>
+                {ai && !aiText && (
+                  <form action={aiStockAction.bind(null, symbol)} className="mt-2">
+                    <SubmitButton className="btn-primary w-full" pendingText="AI กำลังอ่านกราฟและข่าว…">
+                      ให้ AI วิเคราะห์หุ้นนี้{news ? " + ข่าว" : ""}
+                    </SubmitButton>
+                    <p className="muted mt-1 text-[0.8rem]">
+                      ใช้ 1 ข้อความ (วันนี้ใช้ไป {usage.used}/{usage.limit})
+                    </p>
+                  </form>
+                )}
+                {!ai && <p className="muted mt-2 text-[0.8rem]">เปิด Claude ในหน้าตั้งค่า เพื่อให้ AI อ่านกราฟและข่าวแล้วอธิบายเป็นภาษาคน</p>}
+              </>
+            ) : (
+              <p className="muted mt-1">ข้อมูลราคาย้อนหลังยังไม่พอ (ต้องมีอย่างน้อย 60 วันทำการ)</p>
+            )}
+          </section>
+
+          {/* ข่าว */}
+          <section className="card mt-3">
+            <h2 className="font-bold">ข่าวล่าสุด</h2>
+            {news === null ? (
+              <p className="muted mt-1 text-[0.9rem]">โหมดย้อนอดีตไม่แสดงข่าว เพราะข่าวที่ดึงได้เป็นข่าวปัจจุบัน (คือข่าวอนาคตของวันจำลอง)</p>
+            ) : news.length === 0 ? (
+              <p className="muted mt-1 text-[0.9rem]">ไม่พบข่าวในช่วง 30 วันล่าสุด</p>
+            ) : (
+              <>
+                <p className="muted text-[0.8rem]">
+                  โทนพาดหัว (คร่าว ๆ จากคำสำคัญ): บวก {newsBalance(news).pos} · ลบ {newsBalance(news).neg} · กลาง {newsBalance(news).neu}
+                </p>
+                <ul className="mt-2 divide-y divide-line">
+                  {news.map((n) => (
+                    <li key={n.link} className="py-2">
+                      <a href={n.link} target="_blank" rel="noopener noreferrer" className="flex gap-2 hover:underline">
+                        <ToneDot tone={n.tone} />
+                        <span>
+                          <span className="font-semibold">{n.title}</span>
+                          <span className="muted block text-[0.8rem]">
+                            {n.publisher} · {fmtDate(n.time)}
+                          </span>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                <p className="muted mt-1 text-[0.8rem]">ข่าวจาก {marketOf(symbol) === "TH" ? "Google News" : "Yahoo Finance"} · ลิงก์เปิดเว็บต้นทาง</p>
+              </>
+            )}
+          </section>
 
           {/* ช่วงราคา */}
           {lastBar && (
@@ -236,7 +325,7 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
               </h2>
               <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-3">
                 {returns.map((x) => (
-                  <div key={x.label} className="rounded-xl bg-slate-50 p-2 text-center dark:bg-slate-800">
+                  <div key={x.label} className="rounded-lg bg-subtle p-2 text-center">
                     <div className="muted text-[0.8rem]">{x.label}</div>
                     {x.r === null ? <div className="muted font-semibold">–</div> : <Change pct={x.r} className="text-[0.95rem]" />}
                   </div>
@@ -248,7 +337,7 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
           {/* ตัวเลขสำคัญ */}
           <section className="card mt-3">
             <h2 className="font-bold">ตัวเลขสำคัญ</h2>
-            <dl className="mt-1 divide-y divide-slate-100 dark:divide-slate-800">
+            <dl className="mt-1 divide-y divide-line">
               <Row label="ราคาปิดวันก่อน">{quote.prevClose ? fmtMoney(quote.prevClose, cur) : "–"}</Row>
               {lastBar && <Row label={`ราคาเปิด (${fmtDate(lastBar.date)})`}>{fmtMoney(lastBar.open, cur)}</Row>}
               {lastBar && lastBar.volume > 0 && (
@@ -293,7 +382,7 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
               <p className="muted mt-2 text-[0.85rem]">โหมดย้อนอดีตไม่แสดง P/E ปันผล และมูลค่าบริษัท เพราะข้อมูลที่มีเป็นของปัจจุบัน (คือข้อมูลอนาคตของวันจำลอง)</p>
             )}
             <More summary="กติกาการซื้อขายหุ้นนี้">
-              <dl className="divide-y divide-slate-100 dark:divide-slate-800">
+              <dl className="divide-y divide-line">
                 <Row label={market === "TH" ? "หน่วยซื้อขาย" : "ซื้อแบบ"} term={market === "TH" ? "boardLot" : "fractional"}>
                   {market === "TH" ? "ทีละ 100 หุ้น" : "เศษหุ้นได้"}
                 </Row>
@@ -314,12 +403,12 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
           {l.ctx.mode === "live" && fund && (fund.summary || fund.industry || fund.employees || fund.website) && (
             <section className="card mt-3">
               <h2 className="font-bold">เกี่ยวกับบริษัท</h2>
-              <dl className="mt-1 divide-y divide-slate-100 dark:divide-slate-800">
+              <dl className="mt-1 divide-y divide-line">
                 {fund.industry && <Row label="อุตสาหกรรม">{fund.industry}</Row>}
                 {fund.employees ? <Row label="พนักงาน">{fmtQty(fund.employees)} คน</Row> : null}
                 {fund.website && (
                   <Row label="เว็บไซต์">
-                    <a href={fund.website} target="_blank" rel="noopener noreferrer" className="break-all text-blue-700 underline dark:text-blue-300">
+                    <a href={fund.website} target="_blank" rel="noopener noreferrer" className="break-all text-accent-text underline">
                       {fund.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                     </a>
                   </Row>
@@ -339,12 +428,12 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
           {myOrders.length > 0 && (
             <section className="card mt-3">
               <h2 className="font-bold">คำสั่งของคุณในหุ้นนี้</h2>
-              <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-800">
+              <ul className="mt-2 divide-y divide-line">
                 {myOrders.slice(0, 5).map((o) => (
                   <li key={o.id} className="py-2">
                     <div className="flex items-center justify-between gap-2">
                       <span
-                        className={`chip ${o.side === "buy" ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" : "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200"}`}
+                        className={`chip ${o.side === "buy" ? "bg-emerald-400/15 text-emerald-300" : "bg-rose-400/15 text-rose-300"}`}
                       >
                         {o.side === "buy" ? "ซื้อ" : "ขาย"}
                       </span>
@@ -372,9 +461,9 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
       <Disclaimer />
 
       {/* ปุ่มซื้อขาย ติดล่างจอเหนือเมนู */}
-      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 -mx-4 mt-3 border-t lg:bottom-0 lg:mx-0 lg:rounded-t-2xl lg:border-x border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <div className="action-bar sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-20 mt-4 rounded-2xl px-4 py-3 lg:bottom-4">
         <p className={`mb-2 text-[0.85rem] ${t.ok ? "up font-semibold" : "muted"}`}>
-          <span aria-hidden>{t.ok ? "● " : "⏸ "}</span>
+          
           {t.reason}
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -386,7 +475,7 @@ export default async function StockPage({ params }: { params: Promise<{ symbol: 
               ขาย
             </Link>
           ) : (
-            <span className="btn bg-slate-100 text-[0.85rem] text-slate-600 dark:bg-slate-800 dark:text-slate-300">ยังไม่มีหุ้นให้ขาย</span>
+            <span className="btn bg-subtle text-[0.85rem] text-ink-muted">ยังไม่มีหุ้นให้ขาย</span>
           )}
         </div>
       </div>

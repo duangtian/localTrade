@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CountUp } from "@/components/CountUp";
 import { AdvanceBar } from "@/components/AdvanceBar";
 import { MessageCard } from "@/components/MessageCard";
 import { ModeSwitch } from "@/components/ModeSwitch";
@@ -51,7 +52,9 @@ export default async function Home() {
             <h2 id="total" className="muted">
               มูลค่าพอร์ตรวม <Term k="portfolio" />
             </h2>
-            <p className="big-num">{fmtMoney(v.totalThb)}</p>
+            <p className="big-num">
+          <CountUp value={v.totalThb} />
+        </p>
             <div className="mt-2 grid grid-cols-2 gap-3">
               <Stat label="กำไร/ขาดทุนวันนี้" term="dayChange">
                 <Change value={v.dayChangeThb} />
@@ -94,7 +97,7 @@ export default async function Home() {
             </div>
           ) : nextMission ? (
             <div className="card">
-              <p className="font-semibold">🎯 ภารกิจถัดไป: {nextMission.title}</p>
+              <p className="font-semibold">ภารกิจถัดไป: {nextMission.title}</p>
               <p className="muted">{nextMission.hint}</p>
               <Link href="/missions" className="btn-primary mt-3 w-full">
                 ดูภารกิจ
@@ -111,6 +114,20 @@ export default async function Home() {
           <p className="muted mt-3 text-[0.85rem]">
             คุณ {fmtPct(r.playerReturn)} · Bot {fmtPct(r.botReturn)}
           </p>
+          <Link href="/plan" className="row-link mt-3">
+            <span className="flex-1">
+              <span className="block font-semibold">AI จัดพอร์ต</span>
+              <span className="muted block text-[0.85rem]">เสนอแผนกระจายเงินและดูแลพอร์ต</span>
+            </span>
+            <span aria-hidden className="text-white/45">›</span>
+          </Link>
+          <Link href="/picks" className="row-link mt-3">
+            <span className="flex-1">
+              <span className="block font-semibold">หุ้นน่าสนใจ</span>
+              <span className="muted block text-[0.85rem]">Bot คัดจากสถิติ แนวโน้มกราฟ และข่าว</span>
+            </span>
+            <span aria-hidden className="text-white/45">›</span>
+          </Link>
         </div>
       </div>
       <Disclaimer />

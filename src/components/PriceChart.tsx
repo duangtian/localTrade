@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CandlestickSeries, ColorType, createChart, LineSeries, type IChartApi, type UTCTimestamp } from "lightweight-charts";
+import { AreaSeries, CandlestickSeries, ColorType, createChart, type IChartApi, type UTCTimestamp } from "lightweight-charts";
 
 type Point = { time: string | number; open: number; high: number; low: number; close: number };
 
@@ -44,10 +44,9 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
     const tzLabel = symbol.endsWith(".BK") ? "น." : "(เวลา NY)";
     const hhmm = (t: number) => new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: tz });
     const chart = createChart(el.current, {
-      height: 240,
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: dark ? "#e2e8f0" : "#334155", fontSize: 13 },
-      grid: { vertLines: { visible: false }, horzLines: { color: dark ? "#1e293b" : "#e2e8f0" } },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "rgba(255,255,255,0.6)", fontSize: 13, fontFamily: "Outfit, 'IBM Plex Sans Thai', sans-serif" },
+      grid: { vertLines: { visible: false }, horzLines: { color: "rgba(255,255,255,0.06)" } },
       rightPriceScale: { borderVisible: false },
       timeScale: {
         borderVisible: false,
@@ -57,8 +56,7 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
       },
       localization: {
         locale: "th-TH-u-ca-gregory",
-        timeFormatter: (t: number | string) =>
-          typeof t === "number" ? `${hhmm(t)} ${tzLabel}` : String(t),
+        timeFormatter: (t: number | string) => (typeof t === "number" ? `${hhmm(t)} ${tzLabel}` : String(t)),
       },
       handleScroll: false,
       handleScale: false,
@@ -66,20 +64,28 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
     chartRef.current = chart;
     const first = data[0].close;
     const last = data[data.length - 1].close;
-    const color = last >= first ? (dark ? "#4ade80" : "#15803d") : dark ? "#f87171" : "#b91c1c";
+    const color = last >= first ? "#34d399" : "#fb7185";
     const toTime = (t: string | number) => (typeof t === "number" ? (t as UTCTimestamp) : t);
     if (candle) {
       const s = chart.addSeries(CandlestickSeries, {
-        upColor: dark ? "#4ade80" : "#15803d",
-        downColor: dark ? "#f87171" : "#b91c1c",
+        upColor: "#34d399",
+        downColor: "#fb7185",
         borderVisible: false,
-        wickUpColor: dark ? "#4ade80" : "#15803d",
-        wickDownColor: dark ? "#f87171" : "#b91c1c",
+        wickUpColor: "#34d399",
+        wickDownColor: "#fb7185",
       });
       s.setData(data.map((p) => ({ time: toTime(p.time), open: p.open, high: p.high, low: p.low, close: p.close })));
     } else {
-      // กราฟเส้นเดียวเป็นค่าเริ่มต้น พร้อมป้ายค่าล่าสุด
-      const s = chart.addSeries(LineSeries, { color, lineWidth: 3, lastValueVisible: true, priceLineVisible: true });
+      // กราฟเส้นสีขาวพร้อมพื้นจาง ๆ (ทิศทางบอกด้วยตัวเลข % สีเขียว/แดงด้านบน)
+      const s = chart.addSeries(AreaSeries, {
+        lineColor: "rgba(255,255,255,0.92)",
+        topColor: "rgba(255,255,255,0.18)",
+        bottomColor: "rgba(255,255,255,0)",
+        lineWidth: 2,
+        lastValueVisible: true,
+        priceLineVisible: true,
+        priceLineColor: color,
+      });
       s.setData(data.map((p) => ({ time: toTime(p.time), value: p.close })));
     }
     chart.timeScale().fitContent();
@@ -91,7 +97,7 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
 
   return (
     <div>
-      <div role="group" aria-label="ช่วงเวลากราฟ" className="mb-3 grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+      <div role="group" aria-label="ช่วงเวลากราฟ" className="mb-3 grid grid-cols-5 gap-1 rounded-lg bg-subtle p-1">
         {RANGES.map((r) => (
           <button
             key={r.id}
@@ -100,7 +106,7 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
             aria-label={{ "1D": "1 วัน", "1M": "1 เดือน", "3M": "3 เดือน", "1Y": "1 ปี", "5Y": "5 ปี" }[r.id]}
             disabled={backtest && r.id === "1D"}
             onClick={() => setRange(r.id)}
-            className={`btn min-w-0 px-1 text-[0.85rem] ${range === r.id ? "bg-white text-blue-800 shadow dark:bg-slate-950 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}
+            className={`btn min-w-0 px-1 text-[0.85rem] ${range === r.id ? "bg-white/[0.14] text-white" : "text-ink-muted"}`}
           >
             {r.label}
           </button>
@@ -124,10 +130,10 @@ export function PriceChart({ symbol, defaultRange = "1M", backtest = false }: { 
             </p>
           );
         })()}
-      <div ref={el} className="h-[240px] w-full" role="img" aria-label={`กราฟราคา ${symbol} ช่วง ${range}`}>
-        {!data && !error && <p className="muted pt-20 text-center">กำลังโหลดกราฟ…</p>}
-        {error && <p className="muted pt-16 text-center">{error}</p>}
-        {data && data.length === 0 && <p className="muted pt-20 text-center">ไม่มีข้อมูลราคาในช่วงนี้</p>}
+      <div ref={el} className="h-[340px] w-full sm:h-[400px] lg:h-[460px]" role="img" aria-label={`กราฟราคา ${symbol} ช่วง ${range}`}>
+        {!data && !error && <p className="muted pt-32 text-center">กำลังโหลดกราฟ…</p>}
+        {error && <p className="muted pt-28 text-center">{error}</p>}
+        {data && data.length === 0 && <p className="muted pt-32 text-center">ไม่มีข้อมูลราคาในช่วงนี้</p>}
       </div>
       <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-2">
         <input type="checkbox" className="h-5 w-5" checked={candle} onChange={(e) => setCandle(e.target.checked)} />

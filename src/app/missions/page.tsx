@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IconCheckCircle, IconCircle } from "@/components/icons";
 import { EmptyState, PageTitle } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
 import { viewPortfolio } from "@/lib/game/core";
@@ -31,14 +32,14 @@ export default async function MissionsPage() {
           {score} <span className="muted text-xl">/ {max}</span>
         </p>
         <div
-          className="mt-2 h-3 rounded-full bg-slate-200 dark:bg-slate-700"
+          className="mt-2 h-3 rounded-full bg-subtle"
           role="progressbar"
           aria-valuenow={score}
           aria-valuemin={0}
           aria-valuemax={max}
           aria-label="คะแนนวินัย"
         >
-          <div className="h-3 rounded-full bg-blue-700 dark:bg-blue-400" style={{ width: `${(score / max) * 100}%` }} />
+          <div className="h-3 rounded-full bg-accent" style={{ width: `${(score / max) * 100}%` }} />
         </div>
         {next && (
           <Link href="/market" className="btn-primary mt-3 w-full">
@@ -50,7 +51,7 @@ export default async function MissionsPage() {
         {missions.map((m) => (
           <li key={m.id} className={`card flex items-start gap-3 ${m.done ? "opacity-90" : ""}`}>
             <span className="text-2xl" aria-hidden>
-              {m.done ? "✅" : "⬜"}
+              {m.done ? <IconCheckCircle className="h-6 w-6 text-emerald-400" /> : <IconCircle className="h-6 w-6 text-white/45" />}
             </span>
             <div className="flex-1">
               <p className="font-semibold">

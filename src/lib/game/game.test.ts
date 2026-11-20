@@ -168,3 +168,47 @@ describe("คำสั่งซื้อขายในเกม", () => {
     expect(v.valuation.totalThb).toBeCloseTo(7000 + 50 * 30 + h.qty * px * 30, 1);
   });
 });
+
+describe("AI จัดพอร์ต: เสนอแผน → ยืนยัน → ส่งคำสั่งจริง (โหมดย้อนอดีต)", () => {
+  it("แผนซื้อได้จริง ไม่ใช้เงินเกิน มี stop-loss และติดป้าย [แผน AI]", async () => {
+    const { buildPlan, executePlan, getPlan } = await import("@/lib/analysis/planner");
+    const { AI_PLAN_PREFIX } = await import("@/lib/analysis/allocate");
+    // ราคาสมจริง: แนวโน้มขึ้นช้า ๆ + แกว่งขึ้นลงรายวัน (ถ้าขึ้นทุกวัน RSI = 100 จะถูกคัดออก)
+    const syms = ["PTT.BK", "KBANK.BK", "CPALL.BK", "ADVANC.BK", "BDMS.BK", "AAPL", "MSFT", "KO", "JNJ"];
+    const days = 420;
+    const wave = (b0: number, k: number) => Array.from({ length: days }, (_, i) => +(b0 * Math.pow(1.002, i) * (1 + 0.03 * Math.sin(i / 2 + k))).toFixed(2));
+    const base: Record<string, number> = { [FX_SYMBOL]: 30, [BENCHMARKS.SET]: 1500, [BENCHMARKS.SP500]: 3000 };
+    const path: Record<string, number[]> = { [FX_SYMBOL]: Array(days).fill(30) };
+    syms.forEach((s, k) => {
+      base[s] = s.endsWith(".BK") ? 20 + k : 80 + k * 10;
+      path[s] = wave(base[s], k);
+    });
+    const fake = new FakeProvider({ start: "2019-01-01", days, base, path });
+    const db = openDb(":memory:");
+    const cached = new CachedProvider(fake, db, () => NOW);
+    // ราคาปลอมมีถึงราว ก.พ. 2020 จึงเริ่มเกมในช่วงที่มีข้อมูล
+    const game = createGame(db, "backtest", 100_000, "2019-12-02", NOW);
+    const ctx = makeCtx(db, game, cached, FEES, NOW);
+    const pid = getPortfolioId(db, game.id, "player");
+
+    const plan = await buildPlan(db, ctx, pid, { market: "BOTH", maxPositions: 4, usePct: 0.8 });
+    expect(plan.items.length).toBeGreaterThan(0);
+    expect(plan.items.every((i) => i.orderType === "market")).toBe(true);
+    expect(plan.usedThb).toBeLessThanOrEqual(plan.budgetThb + 1);
+    // ข้อมูลที่ใช้ต้องถึงวันจำลองเท่านั้น
+    expect(plan.today).toBe(ctx.today);
+    for (const it of plan.items) expect(it.stop).toBeLessThan(it.price);
+
+    const res = await executePlan(db, ctx, pid);
+    expect(res.every((r) => r.ok)).toBe(true);
+    expect(getPlan(db, ctx)).toBeNull(); // ใช้แล้วหมดไป กดซ้ำไม่ได้
+    const placed = orderHistory(db, pid).filter((o) => o.side === "buy");
+    expect(placed.length).toBe(plan.items.length);
+    for (const o of placed) {
+      expect(o.reason.startsWith(AI_PLAN_PREFIX)).toBe(true);
+      expect(o.stopLoss).not.toBeNull();
+    }
+    const v = await viewPortfolio(ctx, pid);
+    expect(v.state.cashThb).toBeGreaterThanOrEqual(0);
+  });
+});

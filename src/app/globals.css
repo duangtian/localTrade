@@ -2,28 +2,103 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ตัวหนังสือเนื้อหา 18px, ตัวเลขทุกตัวใช้ tabular-nums */
-html { font-size: 18px; -webkit-text-size-adjust: 100%; }
+/*
+ * ธีม "smoky frosted glass"
+ * ชั้น 0: รูปห้องนั่งเล่นขาวดำ เบลอ (public/bg-living.jpg ถ้ามี, ไม่มีใช้ bg-living.svg, สุดท้าย radial gradient)
+ * ชั้น 1: แผงกระจกใหญ่ (.glass-panel)
+ * ชั้น 2: การ์ดกระจกซ้อนบนแผง (.card)
+ * สีเด่นเดียว = น้ำเงิน #3B82F6 · ขึ้น = emerald-400 · ลง = rose-400
+ */
+
+html { font-size: 18px; -webkit-text-size-adjust: 100%; color-scheme: dark; }
 body {
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  @apply bg-canvas text-white;
 }
-:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; border-radius: 6px; }
+:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; border-radius: 10px; }
+
+/* พื้นหลังรูป + ม่านควัน */
+.app-bg {
+  position: fixed;
+  inset: -40px;
+  z-index: -2;
+  background-image: url("/bg-living.svg"), radial-gradient(120% 90% at 30% 20%, #6b6d72 0%, #2b2c30 55%, #141518 100%);
+  background-size: cover, cover;
+  background-position: center;
+  filter: grayscale(1) blur(18px) brightness(0.62);
+}
+.app-smoke {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(120% 100% at 50% 0%, rgb(24 25 28 / 0.45), rgb(10 11 13 / 0.78));
+}
 
 @layer components {
-  .card { @apply rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700; }
-  .btn { @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply btn bg-blue-700 text-white hover:bg-blue-800 dark:bg-blue-500 dark:text-slate-950 dark:hover:bg-blue-400; }
-  .btn-secondary { @apply btn bg-white text-slate-900 ring-1 ring-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-600 dark:hover:bg-slate-700; }
-  .btn-buy { @apply btn bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-400 dark:text-slate-950; }
-  .btn-sell { @apply btn bg-rose-700 text-white hover:bg-rose-800 dark:bg-rose-400 dark:text-slate-950; }
-  .btn-sell-outline { @apply btn bg-white text-rose-700 ring-2 ring-rose-700 hover:bg-rose-50 dark:bg-slate-900 dark:text-rose-300 dark:ring-rose-400; }
-  .input { @apply min-h-[44px] w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400; }
-  .label { @apply mb-1 block font-semibold; }
-  .muted { @apply text-slate-600 dark:text-slate-300; }
-  .up { @apply text-green-700 dark:text-green-400; }
-  .down { @apply text-red-700 dark:text-red-400; }
-  .chip { @apply inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold; }
-  .big-num { @apply text-[2.2rem] font-bold leading-tight tracking-tight; }
+  /* ชั้น 1 */
+  .glass-panel {
+    @apply rounded-[28px] border border-white/10 bg-white/[0.06] backdrop-blur-2xl;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.10), 0 40px 80px -30px rgb(0 0 0 / 0.65);
+  }
+  .glass-bar {
+    @apply border border-white/10 bg-[#1f2023]/90 backdrop-blur-2xl;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 12px 32px -12px rgb(0 0 0 / 0.6);
+  }
+  /* แถบปุ่มซื้อขายที่ลอยทับเนื้อหา: ทึบ เพื่อไม่ให้ข้อความด้านหลังทะลุ */
+  .action-bar {
+    @apply border border-white/10 bg-[#232427];
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 -12px 32px -12px rgb(0 0 0 / 0.6);
+  }
+  /* ชั้น 2 */
+  .card {
+    @apply rounded-2xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-xl transition-[background-color,border-color,transform] duration-200;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  }
+  .card-hover { @apply hover:border-white/20 hover:bg-white/[0.12] motion-safe:hover:-translate-y-[5px]; }
+
+  .btn { @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-full px-5 py-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-white text-neutral-900 hover:bg-white/90; }
+  .btn-accent { @apply btn bg-accent text-white hover:bg-blue-500; }
+  .btn-secondary { @apply btn border border-white/15 bg-white/[0.06] text-white hover:bg-white/[0.12]; }
+  .btn-buy { @apply btn bg-emerald-400 text-emerald-950 hover:bg-emerald-300; }
+  .btn-sell { @apply btn bg-rose-400 text-rose-950 hover:bg-rose-300; }
+  .btn-sell-outline { @apply btn border border-rose-400/70 bg-transparent text-rose-300 hover:bg-rose-400/10; }
+  .input { @apply min-h-[44px] w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-white placeholder:text-white/40 focus:border-accent focus:outline-none; }
+  .label { @apply mb-1 block text-[0.85rem] font-medium text-white/60; }
+  .muted { @apply text-white/60; }
+  .faint { @apply text-white/50; }
+  .up { @apply text-emerald-400; }
+  .down { @apply text-rose-400; }
+  .chip { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.8rem] font-medium; }
+  .big-num { @apply text-[2rem] font-semibold leading-tight tracking-tight text-white; }
+  .section-title { @apply mb-2 mt-6 text-[0.8rem] font-medium uppercase tracking-wider text-white/50; }
+
+  .seg { @apply grid gap-1 rounded-full border border-white/10 bg-white/[0.05] p-1; }
+  .seg-item { @apply inline-flex min-h-[40px] w-full items-center justify-center rounded-full px-3 text-[0.9rem] font-medium text-white/60 transition-colors hover:text-white; }
+  .seg-item-active { @apply seg-item bg-white/[0.14] text-white; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12); }
+
+  .fchip { @apply inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-4 text-[0.9rem] font-medium text-white/60 transition-colors hover:bg-white/[0.10] hover:text-white; }
+  .fchip-active { @apply fchip border-white bg-white text-neutral-900 hover:bg-white hover:text-neutral-900; }
+
+  .note { @apply rounded-xl border-l-2 border-white/30 bg-white/[0.05] px-3 py-2 text-[0.85rem] text-white/80; }
+  .note-warn { @apply note border-amber-400; }
+  .inset { @apply rounded-xl border border-white/[0.08] bg-black/20 p-3; }
+  select.input, .select { @apply min-h-[44px] rounded-full border border-white/10 bg-white/[0.06] px-3 font-medium text-white; }
+  select option { background: #232427; color: #fff; }
+  .row-link { @apply card card-hover flex items-center gap-3 p-3; }
+}
+
+/* เข้าหน้าใหม่: การ์ดค่อย ๆ ปรากฏทีละใบ (เบลอ → ชัด) */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); filter: blur(8px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter > * { animation: rise-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .page-enter > *:nth-child(2) { animation-delay: 0.06s; }
+  .page-enter > *:nth-child(3) { animation-delay: 0.12s; }
+  .page-enter > *:nth-child(4) { animation-delay: 0.18s; }
+  .page-enter > *:nth-child(5) { animation-delay: 0.24s; }
+  .page-enter > *:nth-child(n + 6) { animation-delay: 0.3s; }
 }

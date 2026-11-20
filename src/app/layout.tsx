@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans_Thai } from "next/font/google";
+import localFont from "next/font/local";
 import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
 import { IconLogo, IconSettings } from "@/components/icons";
@@ -9,54 +10,51 @@ import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
-const font = IBM_Plex_Sans_Thai({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["thai", "latin"],
-  variable: "--font-thai",
-  display: "swap",
-});
+// ตัวเลข/ละติน = Outfit (เรขาคณิต มน), ภาษาไทย = IBM Plex Sans Thai (Outfit ไม่มีอักษรไทย)
+// Outfit (OFL) เก็บไว้ในโปรเจกต์ เพราะตัวโหลดฟอนต์ Google ของ Next ดึงไฟล์นี้ไม่สำเร็จ
+const latin = localFont({ src: "./fonts/Outfit-latin.woff2", weight: "100 900", variable: "--font-latin", display: "swap" });
+const thai = IBM_Plex_Sans_Thai({ weight: ["400", "500", "600", "700"], subsets: ["thai"], variable: "--font-thai", display: "swap" });
 
 export const metadata: Metadata = {
   title: "เกมเทรดหุ้นเพื่อการเรียนรู้",
   description: "เกมจำลองการเทรดหุ้นด้วยเงินสมมติ ใช้ราคาจริง เพื่อฝึกวินัย",
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1d4ed8" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1c1d20" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = getSettings(getDb());
   return (
-    <html lang="th" className={`${font.variable} ${settings.theme === "dark" ? "dark" : ""}`}>
+    <html lang="th" className={`${latin.variable} ${thai.variable} dark`}>
       <body className="font-sans antialiased">
-        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:p-2">
+        <div className="app-bg" aria-hidden />
+        <div className="app-smoke" aria-hidden />
+        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-neutral-900">
           ข้ามไปเนื้อหา
         </a>
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-          <div className="mx-auto flex h-[60px] max-w-7xl items-center justify-between gap-2 px-4 lg:px-6">
-            <Link href="/" className="flex min-h-[44px] min-w-0 items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
-              <IconLogo className="h-8 w-8 shrink-0" />
-              <span className="truncate">เทรดเพื่อการเรียนรู้</span>
-            </Link>
-            <div className="flex shrink-0 items-center gap-1">
-              <span
-                className={`chip whitespace-nowrap ${settings.mode === "live" ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" : "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200"}`}
-              >
-                <span aria-hidden className="mr-1">
-                  {settings.mode === "live" ? "●" : "⏪"}
-                </span>
-                {settings.mode === "live" ? "เวลาจริง" : "ย้อนอดีต"}
-              </span>
-              <Link href="/settings" className="btn px-2 text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="ตั้งค่า">
-                <IconSettings />
-              </Link>
-            </div>
-          </div>
-        </header>
-        <div className="mx-auto max-w-7xl lg:flex">
+        <div className="mx-auto max-w-7xl px-2 pb-28 pt-2 sm:px-4 lg:flex lg:items-start lg:gap-5 lg:px-6 lg:py-6">
           <BottomNav />
-          <main id="main" className="min-w-0 flex-1 px-4 pb-28 pt-4 lg:px-8 lg:pb-12 lg:pt-6">
-            {children}
-          </main>
+          {/* ชั้น 1: แผงกระจกใหญ่ */}
+          <div className="glass-panel min-h-[calc(100vh-8rem)] min-w-0 flex-1 lg:min-h-[calc(100vh-3rem)]">
+            <header className="flex items-center justify-between gap-2 px-4 pt-3 lg:px-7 lg:pt-5">
+              <Link href="/" className="flex min-h-[44px] min-w-0 items-center gap-2.5 font-semibold">
+                <IconLogo className="h-8 w-8 shrink-0" />
+                <span className="truncate">เทรดเพื่อการเรียนรู้</span>
+              </Link>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="chip whitespace-nowrap border border-white/10 bg-white/[0.06] text-white/80">
+                  <span aria-hidden className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${settings.mode === "live" ? "bg-emerald-400" : "bg-white/60"}`} />
+                  {settings.mode === "live" ? "เวลาจริง" : "ย้อนอดีต"}
+                </span>
+                <Link href="/settings" className="btn h-11 w-11 border border-white/10 bg-white/[0.06] p-0 text-white/80 hover:bg-white/[0.12] lg:hidden" aria-label="ตั้งค่า">
+                  <IconSettings className="h-5 w-5" />
+                </Link>
+              </div>
+            </header>
+            <main id="main" className="page-enter px-3 pb-6 pt-3 sm:px-4 lg:px-7 lg:pb-8">
+              {children}
+            </main>
+          </div>
         </div>
       </body>
     </html>
