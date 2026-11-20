@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { DateTime } from "luxon";
-import { aiPicksAction, runScanAction } from "@/app/actions";
+import { aiPicksAction, queueScanAction } from "@/app/actions";
+import { ScanProgress } from "@/components/ScanProgress";
 import { ScanList } from "@/components/ScanList";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Disclaimer, EmptyState, More, PageTitle } from "@/components/ui";
 import { INDEXES, type IndexId } from "@/config/indices";
 import { aiEnabled, aiUsage } from "@/lib/ai";
 import { aiPicksKey, rulePicksSummary } from "@/lib/analysis/advice";
-import { getCachedScan } from "@/lib/analysis/screen";
+import { enqueueScan, scanStatus } from "@/lib/analysis/background";
+import { getLatestScan, isStale } from "@/lib/analysis/screen";
 import { getDb } from "@/lib/db/client";
 import { fmtDate } from "@/lib/format";
 import { getIndexStocks } from "@/lib/indices";
@@ -30,16 +32,19 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
   const choices = INDEXES.map((d) => ({ d, n: getIndexStocks(db, d.id).stocks.length })).filter((x) => x.n > 0);
   const universe = (choices.find((x) => x.d.id === u) ?? choices[0]).d.id as IndexId;
   const current = choices.find((x) => x.d.id === universe)!;
-  const scan = getCachedScan(db, l.ctx, universe);
+  const scan = getLatestScan(db, l.ctx, universe);
+  const stale = !!scan && isStale(l.ctx, scan);
+  // ยังไม่มีผล/ผลเก่า: สั่งสแกนเบื้องหลังทันที (หน้าไม่ต้องรอ)
+  if (!scan || stale) enqueueScan(universe, true);
+  const status = scanStatus();
   const ai = aiEnabled(db);
   const usage = aiUsage(db);
   const aiText = scan ? kvGet<string | null>(db, aiPicksKey(scan.key), null) : null;
   const backtest = l.ctx.mode === "backtest";
-  const estSec = Math.max(5, Math.round(current.n / 8));
 
   return (
     <>
-      <PageTitle sub={`Bot คัดจากสถิติกราฟ${backtest ? "" : " + ข่าว"} · ข้อมูลถึง ${fmtDate(l.ctx.today)}`}>หุ้นน่าสนใจ</PageTitle>
+      <PageTitle sub={`Bot คัดจากสถิติกราฟ${backtest ? "" : " + ข่าว"} · ข้อมูลถึง ${fmtDate(l.ctx.today)} · สแกนอัตโนมัติเบื้องหลัง`}>หุ้นน่าสนใจ</PageTitle>
 
       <p className="note-warn mb-4">
         คะแนนดูจากราคาในอดีตเท่านั้น ไม่ได้บอกว่าหุ้นจะขึ้นต่อ ใช้เป็นจุดเริ่มต้นในการศึกษา แล้วเขียนเหตุผลของคุณเองก่อนซื้อ
@@ -63,15 +68,11 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
         </p>
       )}
 
+      <ScanProgress universe={universe} label={current.d.label} initial={status} shownAt={scan?.at ?? null} />
       {!scan ? (
         <section className="card text-center">
-          <p className="font-semibold">ยังไม่ได้สแกน {current.d.label}</p>
-          <p className="muted mt-1">Bot จะดึงราคาย้อนหลังของหุ้น {current.n} ตัว แล้วให้คะแนนจากแนวโน้ม โมเมนตัม และความเสี่ยง</p>
-          <form action={runScanAction.bind(null, universe)} className="mt-3">
-            <SubmitButton className="btn-primary w-full" pendingText={`กำลังสแกน… (ประมาณ ${estSec} วินาทีครั้งแรก)`}>
-              สแกน {current.d.label}
-            </SubmitButton>
-          </form>
+          <p className="font-semibold">กำลังเตรียมผลสแกน {current.d.label}</p>
+          <p className="muted mt-1">Bot ดึงราคาย้อนหลังของหุ้น {current.n} ตัว แล้วให้คะแนนจากแนวโน้ม โมเมนตัม และความเสี่ยง (ทำงานเบื้องหลัง ไปหน้าอื่นได้)</p>
         </section>
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
@@ -80,9 +81,10 @@ export default async function PicksPage({ searchParams }: { searchParams: Promis
               <p className="muted text-[0.85rem]">
                 สแกนเมื่อ {DateTime.fromISO(scan.at).setZone("Asia/Bangkok").toFormat("HH:mm")} น. · {scan.rows.length} ตัว
                 {scan.failed.length > 0 && ` · ข้อมูลไม่พอ ${scan.failed.length} ตัว`}
+                {stale && " · ผลเก่ากว่า 30 นาที กำลังอัปเดตเบื้องหลัง"}
               </p>
-              <form action={runScanAction.bind(null, universe)}>
-                <SubmitButton className="btn-secondary text-[0.9rem]" pendingText="กำลังสแกน…">
+              <form action={queueScanAction.bind(null, universe)}>
+                <SubmitButton className="btn-secondary text-[0.9rem]" pendingText="เพิ่มเข้าคิว…">
                   สแกนใหม่
                 </SubmitButton>
               </form>

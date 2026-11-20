@@ -10,6 +10,7 @@ import { findSeed } from "@/config/seeds";
 import { aiPicksSummary, aiStockAnalysis } from "@/lib/analysis/advice";
 import { getNews, type NewsItem } from "@/lib/analysis/news";
 import { analyzeSymbol, getCachedScan, runScan } from "@/lib/analysis/screen";
+import { enqueueScan } from "@/lib/analysis/background";
 import { buildPlan, clearPlan, executePlan, executeReview, type ExecResult, type PlanMarket } from "@/lib/analysis/planner";
 import type { ReviewAction } from "@/lib/analysis/allocate";
 import { normalizeWeights } from "@/lib/bot/dca";
@@ -385,4 +386,11 @@ export async function resetDaytradeAction() {
   if (pid !== null) deletePortfolio(db, pid);
   setDaytradeConfig(db, l.game.id, null);
   revalidateAll();
+}
+
+/** สั่งสแกนเบื้องหลัง (ไม่รอผล) */
+export async function queueScanAction(universe: IndexId) {
+  if (!indexDef(universe)) return;
+  enqueueScan(universe, true);
+  revalidatePath("/picks");
 }

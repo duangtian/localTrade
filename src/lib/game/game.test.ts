@@ -297,3 +297,23 @@ describe("AI จัดพอร์ตสไตล์เดย์เทรด (�
     expect(fills.filter((o) => o.side === "sell").length).toBe(plan.items.length);
   });
 });
+
+describe("สแกนเบื้องหลัง: เลือกดัชนีที่ต้องสแกน", () => {
+  it("โหมดย้อนอดีต: สแกนดัชนีที่ยังไม่มีผลของวันจำลอง (ยกเว้น S&P 500) แล้วไม่สแกนซ้ำ", async () => {
+    const { dueUniverses } = await import("@/lib/analysis/background");
+    const { runScan } = await import("@/lib/analysis/screen");
+    const { getIndexStocks } = await import("@/lib/indices");
+    const { db, cached } = env;
+    const game = createGame(db, "backtest", 100_000, "2020-03-02", NOW);
+    const ctx = makeCtx(db, game, cached, FEES, NOW);
+    const due = dueUniverses(ctx);
+    expect(due).toContain("set50");
+    expect(due).not.toContain("sp500");
+    expect(due).not.toContain("set100"); // ยังไม่มีรายชื่อ
+    await runScan(db, ctx, "set50", getIndexStocks(db, "set50").stocks.slice(0, 3));
+    expect(dueUniverses(ctx)).not.toContain("set50");
+    // เลื่อนวัน = ต้องสแกนใหม่
+    const next = makeCtx(db, game, cached, FEES, NOW, "2020-03-03");
+    expect(dueUniverses(next)).toContain("set50");
+  });
+});

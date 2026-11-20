@@ -33,11 +33,20 @@ export function scanKey(ctx: Pick<GameCtx, "mode" | "today">, universe: string):
 }
 
 /** ผลสแกนที่เก็บไว้ (โหมดเวลาจริงหมดอายุ 30 นาที, โหมดย้อนอดีตผูกกับวันจำลอง) */
+export function isStale(ctx: Pick<GameCtx, "mode">, r: ScanResult): boolean {
+  return ctx.mode === "live" && Date.now() - Date.parse(r.at) > LIVE_TTL_MS;
+}
+
+/** ผลสแกนที่ยังสด (เวลาจริง ≤ 30 นาที) */
 export function getCachedScan(db: DB, ctx: Pick<GameCtx, "mode" | "today">, universe: string): ScanResult | null {
   const r = kvGet<ScanResult | null>(db, scanKey(ctx, universe), null);
-  if (!r) return null;
-  if (ctx.mode === "live" && Date.now() - Date.parse(r.at) > LIVE_TTL_MS) return null;
+  if (!r || isStale(ctx, r)) return null;
   return r;
+}
+
+/** ผลสแกนล่าสุดของวันนี้ แม้จะเก่ากว่า 30 นาที (ใช้แสดงระหว่างสแกนใหม่เบื้องหลัง) */
+export function getLatestScan(db: DB, ctx: Pick<GameCtx, "mode" | "today">, universe: string): ScanResult | null {
+  return kvGet<ScanResult | null>(db, scanKey(ctx, universe), null);
 }
 
 /** คำนวณสัญญาณของหุ้น 1 ตัว ณ วันของเกม */
@@ -48,7 +57,14 @@ export async function analyzeSymbol(provider: PriceProvider, symbol: string, tod
   return analyze(bars.filter((b) => b.date.slice(0, 10) <= today));
 }
 
-export async function runScan(db: DB, ctx: GameCtx, universe: string, stocks: SeedStock[], concurrency = 6): Promise<ScanResult> {
+export async function runScan(
+  db: DB,
+  ctx: GameCtx,
+  universe: string,
+  stocks: SeedStock[],
+  concurrency = 6,
+  onProgress?: (done: number, total: number) => void,
+): Promise<ScanResult> {
   const rows: ScanRow[] = [];
   const failed: string[] = [];
   let i = 0;
@@ -62,6 +78,7 @@ export async function runScan(db: DB, ctx: GameCtx, universe: string, stocks: Se
       } catch {
         failed.push(s.symbol);
       }
+      onProgress?.(rows.length + failed.length, stocks.length);
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, stocks.length) }, worker));

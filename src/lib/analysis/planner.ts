@@ -14,7 +14,7 @@ import { buyUsdRate } from "@/lib/rules/fees";
 import { kvGet, kvSet } from "@/lib/settings";
 import { findSeed, sectorOf } from "@/config/seeds";
 import { AI_PLAN_PREFIX, allocatePlan, reviewHoldings, type Candidate, type PlanItem, type ReviewAction } from "./allocate";
-import { analyzeSymbol, getCachedScan, runScan } from "./screen";
+import { analyzeSymbol, getCachedScan, getLatestScan, runScan } from "./screen";
 import { suggestLevels } from "./levels";
 import { DAY_TAG } from "./allocate";
 import { DT_UNIVERSE, entrySignal, liveDecide, simulateDay } from "@/lib/bot/daytrade";
@@ -62,7 +62,7 @@ export function clearPlan(db: DB, ctx: GameCtx) {
 }
 
 async function scanFor(db: DB, ctx: GameCtx, id: IndexId) {
-  return getCachedScan(db, ctx, id) ?? (await runScan(db, ctx, id, getIndexStocks(db, id).stocks));
+  return getCachedScan(db, ctx, id) ?? getLatestScan(db, ctx, id) ?? (await runScan(db, ctx, id, getIndexStocks(db, id).stocks));
 }
 
 export async function buildPlan(db: DB, ctx: GameCtx, pid: number, options: PlanOptions): Promise<Plan> {
