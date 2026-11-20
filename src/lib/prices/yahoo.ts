@@ -44,11 +44,24 @@ export class YahooProvider implements PriceProvider {
 
   async getQuotes(symbols: string[]): Promise<Record<string, Quote>> {
     if (symbols.length === 0) return {};
-    const list = await withTimeout(yf.quote(symbols));
+    // แบ่งชุดละ 100 ตัว (URL ยาวเกินถ้าส่ง 500 ตัวทีเดียว) ยิงพร้อมกันไม่เกิน 3 ชุด
+    const chunks: string[][] = [];
+    for (let i = 0; i < symbols.length; i += 100) chunks.push(symbols.slice(i, i + 100));
     const out: Record<string, Quote> = {};
-    for (const q of Array.isArray(list) ? list : [list]) {
-      if (q && q.regularMarketPrice != null) out[q.symbol] = toQuote(q);
+    let failed = 0;
+    for (let i = 0; i < chunks.length; i += 3) {
+      const res = await Promise.allSettled(chunks.slice(i, i + 3).map((c) => withTimeout(yf.quote(c))));
+      for (const r of res) {
+        if (r.status === "rejected") {
+          failed++;
+          continue;
+        }
+        for (const q of Array.isArray(r.value) ? r.value : [r.value]) {
+          if (q && q.regularMarketPrice != null) out[q.symbol] = toQuote(q);
+        }
+      }
     }
+    if (failed === chunks.length) throw new Error("ดึงราคาไม่สำเร็จ");
     return out;
   }
 

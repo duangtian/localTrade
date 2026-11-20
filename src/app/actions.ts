@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { BACKTEST_PRESETS, STARTING_CASH_OPTIONS } from "@/config/app";
 import type { FeeConfig } from "@/config/fees";
+import { parseThaiSymbols } from "@/config/indices";
+import { setIndexOverride } from "@/lib/indices";
 import { askClaude, aiEnabled } from "@/lib/ai";
 import { buildAiContext, CANNED_QA, coachQuestion } from "@/lib/coach";
 import { getDb } from "@/lib/db/client";
@@ -203,5 +205,17 @@ export async function saveFeesAction(formData: FormData) {
     fx: { spreadRate: pct("fxSpread") },
   };
   setFees(getDb(), fees);
+  revalidateAll();
+}
+
+export async function saveIndexAction(id: "set50" | "set100", formData: FormData) {
+  const symbols = parseThaiSymbols(String(formData.get("symbols") ?? ""));
+  const asOf = String(formData.get("asOf") || "").slice(0, 40) || new Date().toISOString().slice(0, 10);
+  setIndexOverride(getDb(), id, symbols.length ? { symbols, asOf, savedAt: new Date().toISOString() } : null);
+  revalidateAll();
+}
+
+export async function resetIndexAction(id: "set50" | "set100") {
+  setIndexOverride(getDb(), id, null);
   revalidateAll();
 }

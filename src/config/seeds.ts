@@ -1,3 +1,6 @@
+import ndx from "./data/ndx.json";
+import sp500 from "./data/sp500.json";
+
 /**
  * รายชื่อหุ้นตั้งต้น
  *
@@ -10,7 +13,8 @@ export interface SeedStock {
   sector: string; // ชื่อกลุ่มอุตสาหกรรมภาษาไทย
 }
 
-export const SET50: SeedStock[] = [
+/** ชื่อไทยและกลุ่มของหุ้นไทยที่รู้จัก (ใช้แสดงผล ไม่ได้บอกว่าอยู่ในดัชนีไหน) */
+export const THAI_STOCKS: SeedStock[] = [
   { symbol: "ADVANC.BK", name: "แอดวานซ์ อินโฟร์ เซอร์วิส", sector: "เทคโนโลยี/สื่อสาร" },
   { symbol: "AOT.BK", name: "ท่าอากาศยานไทย", sector: "ขนส่ง" },
   { symbol: "AWC.BK", name: "แอสเสท เวิรด์ คอร์ป", sector: "อสังหาริมทรัพย์" },
@@ -61,7 +65,25 @@ export const SET50: SeedStock[] = [
   { symbol: "TRUE.BK", name: "ทรู คอร์ปอเรชั่น", sector: "เทคโนโลยี/สื่อสาร" },
   { symbol: "TTB.BK", name: "ธนาคารทีเอ็มบีธนชาต", sector: "ธนาคาร" },
   { symbol: "WHA.BK", name: "ดับบลิวเอชเอ คอร์ปอเรชั่น", sector: "อสังหาริมทรัพย์" },
+  { symbol: "BCP.BK", name: "บางจาก คอร์ปอเรชั่น", sector: "พลังงาน" },
+  { symbol: "KCE.BK", name: "เคซีอี อีเลคโทรนิคส์", sector: "ชิ้นส่วนอิเล็กทรอนิกส์" },
+  { symbol: "TIDLOR.BK", name: "เงินติดล้อ", sector: "เงินทุนและหลักทรัพย์" },
+  { symbol: "TU.BK", name: "ไทยยูเนี่ยน กรุ๊ป", sector: "อาหารและเครื่องดื่ม" },
+  { symbol: "VGI.BK", name: "วีจีไอ", sector: "สื่อและบันเทิง" },
 ];
+
+/**
+ * SET50 ตั้งต้น: ตามหน้า Wikipedia "SET50 Index and SET100 Index" (ระบุว่า as of 2025, ดึงเมื่อ 2026-11-20)
+ * TODO: SET ปรับรายชื่อทุก 6 เดือน รายการนี้อาจไม่ตรงรอบปัจจุบัน
+ * วางรายชื่อล่าสุดจากเว็บ SET ได้ที่หน้า ตั้งค่า → รายชื่อดัชนีหุ้นไทย (ไม่ต้องแก้ไฟล์นี้)
+ */
+export const SET50_DEFAULT_SYMBOLS =
+  "ADVANC AOT AWC BANPU BBL BCP BDMS BEM BH BJC BTS CBG CCET COM7 CPALL CPF CPN CRC DELTA EGCO GPSC GULF HMPRO IVL KBANK KCE KKP KTB KTC LH MINT MTC OR OSP PTT PTTEP PTTGC RATCH SCB SCC SCGP TCAP TIDLOR TISCO TLI TOP TRUE TTB TU VGI WHA"
+    .split(" ")
+    .map((s) => `${s}.BK`);
+
+const THAI_MAP = new Map(THAI_STOCKS.map((s) => [s.symbol, s]));
+export const SET50: SeedStock[] = SET50_DEFAULT_SYMBOLS.map((s) => THAI_MAP.get(s) ?? { symbol: s, name: s.replace(".BK", ""), sector: "ไม่ระบุกลุ่ม" });
 
 export const US_POPULAR: SeedStock[] = [
   { symbol: "AAPL", name: "Apple", sector: "เทคโนโลยี" },
@@ -114,7 +136,9 @@ export const BOT_LONGTERM_PICKS: string[] = [
 export const BENCHMARKS = { SET: "^SET.BK", SP500: "^GSPC" } as const;
 export const FX_SYMBOL = "THB=X";
 
-const ALL = new Map([...SET50, ...US_POPULAR].map((s) => [s.symbol, s]));
+// ลำดับความสำคัญ: รายการที่เขียนชื่อไทยเอง > S&P 500 > Nasdaq-100
+const ALL = new Map<string, SeedStock>();
+for (const s of [...US_POPULAR, ...THAI_STOCKS, ...sp500.stocks, ...ndx.stocks]) if (!ALL.has(s.symbol)) ALL.set(s.symbol, s);
 export function findSeed(symbol: string): SeedStock | undefined {
   return ALL.get(symbol);
 }

@@ -1,4 +1,6 @@
-import { saveFeesAction, updateSettingsAction } from "@/app/actions";
+import { resetIndexAction, saveFeesAction, saveIndexAction, updateSettingsAction } from "@/app/actions";
+import { getIndexOverride } from "@/lib/indices";
+import { SET50_DEFAULT_SYMBOLS } from "@/config/seeds";
 import { SetupForm } from "@/components/SetupForm";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Term } from "@/components/Term";
@@ -101,6 +103,69 @@ export default function SettingsPage() {
           <SetupForm mode={s.mode} defaultCash={game?.startingCash ?? s.startingCash} maxDate={maxSimDate()} isReset={Boolean(game)} />
           <p className="muted mt-1 px-1 text-[0.85rem]">รีเซ็ตเฉพาะพอร์ตของโหมด{s.mode === "live" ? "เวลาจริง" : "ย้อนอดีต"} (พอร์ตของอีกโหมดไม่เปลี่ยน)</p>
         </div>
+
+        <section id="indexes" className="card mt-3 scroll-mt-20">
+          <h2 className="text-lg font-bold">รายชื่อดัชนีหุ้นไทย</h2>
+          <p className="muted text-[0.9rem]">
+            เว็บ SET ไม่เปิดให้แอปดึงรายชื่ออัตโนมัติ ให้เปิดหน้าดัชนีบนเว็บ SET แล้วคัดลอกชื่อย่อทั้งหมดมาวาง (คั่นด้วยเว้นวรรค จุลภาค หรือขึ้นบรรทัดใหม่ก็ได้) SET
+            ปรับรายชื่อทุก 6 เดือน (มกราคม / กรกฎาคม)
+          </p>
+          {(["set50", "set100"] as const).map((id) => {
+            const o = getIndexOverride(db, id);
+            const label = id === "set50" ? "SET50" : "SET100";
+            return (
+              <div key={id} className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="font-bold">{label}</h3>
+                  <span className="muted text-[0.85rem]">
+                    {o
+                      ? `ใช้รายชื่อที่คุณวาง ${o.symbols.length} ตัว (ณ ${o.asOf})`
+                      : id === "set50"
+                        ? `ใช้รายชื่อตั้งต้นจาก Wikipedia (2025) ${SET50_DEFAULT_SYMBOLS.length} ตัว`
+                        : "ยังไม่มีรายชื่อ"}
+                  </span>
+                </div>
+                <a
+                  href={`https://www.set.or.th/th/market/index/${id}/overview`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[0.9rem] text-blue-700 underline dark:text-blue-300"
+                >
+                  เปิดหน้า {label} บนเว็บ SET
+                </a>
+                <form action={saveIndexAction.bind(null, id)} className="mt-2 space-y-2">
+                  <label htmlFor={`sym-${id}`} className="sr-only">
+                    ชื่อย่อหุ้นใน {label}
+                  </label>
+                  <textarea
+                    id={`sym-${id}`}
+                    name="symbols"
+                    rows={4}
+                    className="input font-mono text-[0.85rem]"
+                    placeholder="เช่น ADVANC AOT BBL BDMS ..."
+                    defaultValue={o ? o.symbols.map((s) => s.replace(".BK", "")).join(" ") : ""}
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-[0.9rem]">
+                      <span className="muted">รายชื่อรอบ</span>
+                      <input name="asOf" className="input w-40" placeholder="เช่น ม.ค.–มิ.ย. 2027" defaultValue={o?.asOf ?? ""} />
+                    </label>
+                    <SubmitButton className="btn-primary" pendingText="กำลังบันทึก…">
+                      บันทึก {label}
+                    </SubmitButton>
+                  </div>
+                </form>
+                {o && (
+                  <form action={resetIndexAction.bind(null, id)} className="mt-2">
+                    <button type="submit" className="btn-secondary text-[0.9rem]">
+                      ล้างรายชื่อที่วาง (กลับไปใช้ค่าตั้งต้น)
+                    </button>
+                  </form>
+                )}
+              </div>
+            );
+          })}
+        </section>
 
         <section className="card mt-3 text-[0.9rem]">
           <h2 className="text-lg font-bold">กติกาตลาดที่ใช้</h2>

@@ -60,7 +60,8 @@ npm run typecheck
 | --- | --- |
 | `src/config/fees.ts` | ค่าคอม/spread แบบ Dime! (TODO กรอกอัตราจริง) |
 | `src/config/market.ts` | tick size SET, ceiling/floor, เวลาตลาด, **วันหยุดตลาด (แก้ได้)** |
-| `src/config/seeds.ts` | รายชื่อ SET50, หุ้นสหรัฐฯ ยอดนิยม, หุ้นของ Bot |
+| `src/config/seeds.ts` | ชื่อไทยของหุ้นไทย, SET50 ตั้งต้น, หุ้นสหรัฐฯ ยอดนิยม, หุ้นของ Bot |
+| `src/config/indices.ts`, `src/config/data/*.json` | รายชื่อดัชนี (S&P 500, Nasdaq-100 สร้างจาก `scripts/update-us-indices.mjs`) |
 | `src/config/app.ts` | เงินเริ่มต้น, preset วันย้อนอดีต, โควตา Claude, เกณฑ์เตือน 40% |
 | `src/lib/glossary.ts` | อภิธานศัพท์กลาง (ไอคอน ?) |
 | `src/lib/prices/` | `PriceProvider`, `YahooProvider`, `SetSmartProvider` (ช่องว่างไว้), cache, `TimeBoundedProvider` |
@@ -68,6 +69,19 @@ npm run typecheck
 | `src/lib/game/` | เวลาเกม, คำสั่ง, Limit, เลื่อนวัน, sync โหมดเวลาจริง |
 | `src/lib/bot/` | `BotStrategy` interface และบุคลิก "ถือยาว" |
 | `DECISIONS.md` | การตัดสินใจที่ requirement ไม่ได้ระบุชัด |
+
+## รายชื่อดัชนี (SET50 / SET100 / S&P 500 / Nasdaq-100)
+
+หน้า **ตลาด** เลือกดูหุ้นตามดัชนีได้
+
+| ดัชนี | ที่มา | วิธีอัปเดต |
+| --- | --- | --- |
+| S&P 500 | Wikipedia (List of S&P 500 companies) | `npm run update-indices` |
+| Nasdaq-100 | api.nasdaq.com | `npm run update-indices` |
+| SET50 | ตั้งต้นจาก Wikipedia (as of 2025) | วางรายชื่อเองในหน้า ตั้งค่า → รายชื่อดัชนีหุ้นไทย |
+| SET100 | ยังไม่มี (เว็บ SET ไม่เปิดให้ดึงอัตโนมัติ) | วางรายชื่อเองในหน้า ตั้งค่า → รายชื่อดัชนีหุ้นไทย |
+
+วิธีวางรายชื่อ SET50/SET100: เปิดหน้าดัชนีบนเว็บ SET (มีลิงก์ในหน้าตั้งค่า) คัดลอกตารางรายชื่อทั้งหมดมาวางได้เลย แอปจะเก็บเฉพาะชื่อย่อ (ตัดตัวเลข ราคา หัวตารางออกเอง) SET ปรับรายชื่อทุก 6 เดือน
 
 ## เลือกผู้ให้บริการราคา
 

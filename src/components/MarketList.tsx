@@ -14,12 +14,14 @@ export function MarketList({
   market,
 }: {
   items: SeedStock[];
-  quotes: Record<string, { price: number; prevClose: number | null }>;
+  quotes: Record<string, { price: number; prevClose: number | null; name?: string }>;
   market: "TH" | "US";
 }) {
   const [q, setQ] = useState("");
   const [sector, setSector] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>("name");
+  const PAGE = 60;
+  const [limit, setLimit] = useState(PAGE);
   const hasQuotes = Object.keys(quotes).length > 0;
 
   const chgOf = (sym: string) => {
@@ -51,6 +53,11 @@ export function MarketList({
     let list = items.filter(
       (i) => (!sector || i.sector === sector) && (!s || i.symbol.toUpperCase().includes(s) || i.name.toUpperCase().includes(s) || i.sector.includes(q.trim())),
     );
+    if (s && sort === "name") {
+      // ชื่อย่อที่ขึ้นต้นด้วยคำค้นมาก่อน
+      const rank = (x: SeedStock) => (x.symbol.replace(".BK", "") === s ? 0 : x.symbol.startsWith(s) ? 1 : 2);
+      list = [...list].sort((a, b) => rank(a) - rank(b));
+    }
     if (sort !== "name") {
       list = [...list].sort((a, b) => {
         const ca = chgOf(a.symbol) ?? (sort === "gain" ? -Infinity : Infinity);
@@ -108,7 +115,10 @@ export function MarketList({
           autoComplete="off"
           placeholder={market === "TH" ? "ค้นหา เช่น PTT, ธนาคาร" : "ค้นหา เช่น AAPL, Apple"}
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setLimit(PAGE);
+          }}
         />
       </div>
       {otherSymbol && (
@@ -152,7 +162,7 @@ export function MarketList({
 
       <ul className="mt-2 space-y-2 md:grid md:grid-cols-2 md:gap-3 md:space-y-0 xl:grid-cols-3">
         {filtered.length === 0 && <li className="card muted md:col-span-full">ไม่พบหุ้นที่ค้นหา ลองพิมพ์ชื่อย่อให้ครบ แล้วกดปุ่ม &quot;เปิดหุ้น&quot; ด้านบน</li>}
-        {filtered.map((s) => {
+        {filtered.slice(0, limit).map((s) => {
           const qt = quotes[s.symbol];
           const chg = chgOf(s.symbol);
           return (
@@ -164,7 +174,7 @@ export function MarketList({
                 <StockBadge symbol={s.symbol} sector={s.sector} />
                 <div className="min-w-0 flex-1">
                   <div className="font-bold leading-tight">{s.symbol.replace(".BK", "")}</div>
-                  <div className="muted truncate text-[0.8rem]">{s.name}</div>
+                  <div className="muted truncate text-[0.8rem]">{s.name === s.symbol.replace(".BK", "") ? (qt?.name ?? "") : s.name}</div>
                 </div>
                 <div className="shrink-0 text-right">
                   {qt ? (
@@ -184,6 +194,11 @@ export function MarketList({
           );
         })}
       </ul>
+      {filtered.length > limit && (
+        <button type="button" onClick={() => setLimit((n) => n + PAGE * 2)} className="btn-secondary mt-3 w-full">
+          แสดงเพิ่ม (เหลืออีก {filtered.length - limit} ตัว)
+        </button>
+      )}
     </div>
   );
 }

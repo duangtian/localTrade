@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "test": "node scripts/test.mjs run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "update-indices": "node scripts/update-us-indices.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.11.0",
