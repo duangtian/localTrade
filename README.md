@@ -28,6 +28,21 @@ npm run dev
    New-NetFirewallRule -DisplayName "TradingGame 3000" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow -Profile Private
    ```
 
+### เปิดจากที่ไหนก็ได้ผ่านอินเทอร์เน็ต (ไม่ต้องอยู่ Wi-Fi เดียวกัน)
+
+1. ตั้งรหัสผ่านใน `.env` ก่อน (สำคัญ: ไม่งั้นใครได้ลิงก์ก็เข้าเล่นและแก้พอร์ตได้)
+   ```
+   APP_PASSWORD=รหัสที่ต้องการ
+   ```
+   แล้วรัน `npm run build && npm start` ใหม่ เบราว์เซอร์จะถามรหัส (ชื่อผู้ใช้ใส่อะไรก็ได้)
+2. เปิดอุโมงค์ (ใช้ ssh ที่มากับ Windows ไม่ต้องติดตั้งเพิ่ม):
+   ```bash
+   ssh -o ServerAliveInterval=30 -R 80:127.0.0.1:3000 nokey@localhost.run
+   ```
+   จะได้ลิงก์ `https://xxxx.lhr.life` เปิดบนมือถือได้เลย
+3. ข้อจำกัด: คอมต้องเปิดอยู่และหน้าต่าง ssh ต้องไม่ปิด, ลิงก์ฟรีจะเปลี่ยนเป็นระยะ (ต้องดูลิงก์ใหม่จากหน้าต่าง ssh)
+   ถ้าต้องการลิงก์ถาวร ใช้ Cloudflare Tunnel (ต้องติดตั้ง `cloudflared` และมีโดเมน) หรือย้ายไปโฮสต์ที่มีดิสก์ถาวร เช่น VPS
+
 ### ทดสอบ
 
 ```bash
