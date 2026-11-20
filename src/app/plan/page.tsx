@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buildPlanAction, cancelPlanAction } from "@/app/actions";
 import { ConfirmPlan, ReviewItem } from "@/components/PlanActions";
+import { PlanItemCard, PlanSummary } from "@/components/PlanSummary";
 import { StockBadge } from "@/components/StockBadge";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Disclaimer, EmptyState, More, PageTitle } from "@/components/ui";
@@ -97,46 +98,17 @@ export default async function PlanPage() {
 
           {plan && (
             <div className="mt-4 space-y-3">
-              <div className="card">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-semibold">แผนที่เสนอ · {plan.options.style === "day" ? "เดย์เทรด" : "ถือยาว"}</h3>
-                  <span className="muted text-[0.85rem]">
-                    ใช้ ≈ {fmtMoney(plan.usedThb)} จากเงินสด {fmtMoney(plan.cashThb)}
-                  </span>
-                </div>
-                <p className="mt-2 whitespace-pre-line text-[0.95rem]">{plan.commentary}</p>
-                <p className="faint mt-1 text-[0.8rem]">{plan.byAi ? "อธิบายโดย AI (Claude)" : ai ? "AI ไม่ตอบ ใช้คำอธิบายของ Bot" : "คำอธิบายของ Bot (เปิด Claude ในตั้งค่าเพื่อให้ AI อธิบาย)"}</p>
-              </div>
+              <PlanSummary plan={plan} ai={ai} />
 
               {plan.items.length > 0 && (
-                <ol className="card overflow-hidden p-0">
-                  {plan.exchangeThb > 0 && (
-                    <li className="border-b border-line px-4 py-3 text-[0.9rem]">
-                      <b>ขั้นแรก:</b> แลก {fmtMoney(plan.exchangeThb)} เป็น USD สำหรับหุ้นสหรัฐฯ
-                    </li>
-                  )}
-                  {plan.items.map((it) => (
-                    <li key={it.symbol} className="border-b border-line px-4 py-3 last:border-b-0">
-                      <div className="flex items-center gap-3">
-                        <StockBadge symbol={it.symbol} />
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold leading-tight">
-                            {it.symbol.replace(".BK", "")} <span className="muted font-normal">· {it.sector}</span>
-                          </p>
-                          <p className="muted truncate text-[0.85rem]">{it.name}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">{it.qty ? `${fmtQty(it.qty)} หุ้น` : fmtMoney(it.amountUsd!, "USD")}</p>
-                          <p className="faint text-[0.8rem]">
-                            ≈ {fmtMoney(it.costThb)} · {(it.weightAfter * 100).toFixed(0)}% ของพอร์ต
-                          </p>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-[0.85rem] text-white/75">{it.reason}</p>
-                      {it.orderType === "limit" && <p className="faint text-[0.8rem]">ตลาดปิด: ตั้ง Limit ที่ราคา {it.price}</p>}
-                    </li>
-                  ))}
-                </ol>
+                <>
+                  <h3 className="section-title">หุ้นในแผน ({plan.items.length} ตัว)</h3>
+                  <ol className="card overflow-hidden p-0">
+                    {plan.items.map((it) => (
+                      <PlanItemCard key={it.symbol} it={it} />
+                    ))}
+                  </ol>
+                </>
               )}
 
               {plan.skipped.length > 0 && (

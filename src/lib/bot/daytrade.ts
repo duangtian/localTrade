@@ -57,7 +57,15 @@ export function entrySignal(symbol: string, past: Bar[], todayOpen: number, cfg:
   const gap = todayOpen / prevClose - 1;
   if (prevClose <= ma20) return null;
   if (gap < cfg.gapPct || gap > 0.05) return null;
-  return { symbol, gap, prevClose, why: `ราคาเปิด gap up ${pct(gap)} จากราคาปิดเมื่อวาน และอยู่เหนือเส้นเฉลี่ย 20 วัน (${round2(ma20)}) = มีแรงซื้อต่อเนื่อง` };
+  return {
+    symbol,
+    gap,
+    prevClose,
+    why: [
+      `เปิดตลาดวันนี้สูงกว่าราคาปิดเมื่อวาน ${pct(gap)} แสดงว่ามีแรงซื้อตั้งแต่เปิดตลาด`,
+      `ราคาอยู่เหนือเส้นเฉลี่ย 20 วัน (${round2(ma20)}) แปลว่าช่วงนี้แนวโน้มเป็นขาขึ้น`,
+    ].join(" · "),
+  };
 }
 
 export interface DayOutcome {
@@ -110,5 +118,12 @@ export function liveDecide(p: {
   if (firstHalfHour.length < 6) return null;
   const orHigh = Math.max(...firstHalfHour.map((b) => b.high));
   if (price <= orHigh) return null;
-  return { action: "buy", why: `ราคาทะลุจุดสูงสุด 30 นาทีแรก (${round2(orHigh)}) และสูงกว่าราคาปิดเมื่อวาน ${pct(price / p.prevClose - 1)} ในแนวโน้มขาขึ้น` };
+  return {
+    action: "buy",
+    why: [
+      `ราคาขึ้นทะลุจุดสูงสุดของช่วง 30 นาทีแรก (${round2(orHigh)}) แสดงว่าแรงซื้อยังมา`,
+      `สูงกว่าราคาปิดเมื่อวาน ${pct(price / p.prevClose - 1)}`,
+      `ราคาอยู่เหนือเส้นเฉลี่ย 20 วัน แปลว่าช่วงนี้แนวโน้มเป็นขาขึ้น`,
+    ].join(" · "),
+  };
 }
